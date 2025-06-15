@@ -15,7 +15,7 @@
 
 as shown this layout enables us to grab the appropriate 16x8 tile for our k^t matrix
 
-
+right now T1=float16, T2=float32 always 
 
 */ 
 //using ampere m16n8k16 mma...new ports for hopper soon
@@ -33,11 +33,12 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, int seq_len, int laneid,int 
             int x_idx=(i+warpid)%req_x_tiles;
             int y_idx=(i+warpid)/req_x_tiles;
             int output_tile_uleft[2]={y_idx*TILE_Y_SIZE,x_idx*TILE_X_SIZE};//upper left's row, col
+            T2 rC[4]={0,0,0,0};
             for (int j=0;j<qkv_dim/SHARED_Q_K_DIM;j++) {
                 int q_uleft[2]={output_tile_uleft[0],output_tile_uleft[1]+j*SHARED_Q_K_DIM};
                 int k_uleft[2]={output_tile_uleft[1],output_tile_uleft[0]+j*SHARED_Q_K_DIM};//LOAD IN TRANSPOSE!!! 
                 //load to registers, execute ptx oh 
-                int q_elements[8]=[
+                T1 q_elements[8]=[
                     shared_q[q_uleft[0]+laneid/4][q_uleft[1]+2*(laneid%4)],
                     shared_q[q_uleft[0]+laneid/4][q_uleft[1]+2*(laneid%4)+1],
                     shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+2*(laneid%4)],
@@ -47,11 +48,20 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, int seq_len, int laneid,int 
                     shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+8+2*(laneid%4)],
                     shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+8+2*(laneid%4)+1]
                     ];//thank you to https://veitner.bearblog.dev/ for making the register loading a lot easier
-                    int k_elements[4]=[
-
-                        
-                    ]
+                    T1 k_elements[4]=[
+                        shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)],
+                        shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)+1],
+                        shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)+8],
+                        shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)+9]//handle the transpose here, prone to error section
+                    ];
+                    //use ptx instruction!
+                      asm("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"//just handling this type pattern for now
+                    "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
+                    : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
+                    : "r"(q_elements[0]), "r"(q_elements[1]), "r"(q_elements[2]), "r"(q_elements[3]), "r"(k_elements[0]), "r"(k_elements[1]),
+                        "f"(rC[0]), "f"(rC[1]), "f"(rC[2]), "f"(rC[3]));
         }
+        //store to SM 
     }
     }
 
