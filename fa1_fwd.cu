@@ -193,8 +193,8 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
         int head_prefix=head_id*seq_len*qkv_dim;
         int b_c=seq_len/(4*qkv_dim);//split k,v into tiles of this size on seq_len dim 
         int b_r=min(b_c,qkv_dim);//split q into tiles of this on seq_len dim
-        int t_c=ceil(N/b_c);
-        int t_r=ceil(N/b_r);
+        int t_c=ceil(seq_len/b_c);
+        int t_r=ceil(seq_len/b_r);
         for (int j=0;j<t_c;j++) {//load in qkv_dim*b_c elements
             int elementsToLoad=b_c*qkv_dim;
             int seq_prefix=j*b_c*qkv_dim;
@@ -219,7 +219,39 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
 
             __syncthreads();
             calcQKT<T1,T2,b_c,qkv_dim>(shared_q,shared_k,shared_qkt,seq_len,laneid,warpid);
-            reductionStep<T1,T2,b_c,qkv_dim>(shared_qkt,maxValues,sumValues,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid);
+            __syncthreads(); 
+            //load in all required sram utils from dram 
+            //first half of warps load in maxValues, second half load in sumValues
+            if (warpid < WARPS_PER_BLOCK/2) {
+                for(int k=tid;k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    shared_maxValues[k]=maxValues[i*b_r+k];
+                }
+            } else {
+                for (int k=tid-(WARP_SIZE*WARPS_PER_BLOCK/2);k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    shared_sumValues[k]=sumValues[i*b_r+k];
+            }
+            }
+            //collaborate on O block loading
+            for (int k=tid;k<b_r*qkv_dim;k+=(WARP_SIZE*WARPS_PER_BLOCK)) {
+                shared_output[k/qkv_dim][k%qkv_dim]=output[head_prefix+(b_r*i+k/qkv_dim)*qkv_dim+(k%qkv_dim)];
+            }
+            __syncthreads();
+            reductionStep<T1,T2,b_c,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid);
+            __syncthreads();
+            //write output to DRAM
+            if (warpid < WARPS_PER_BLOCK/2) {
+                for(int k=tid;k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    maxValues[i*b_r+k]=shared_maxValues[k];
+                }
+            } else {
+                for (int k=tid-(WARP_SIZE*WARPS_PER_BLOCK/2);k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    sumValues[i*b_r+k]=shared_sumValues[k];
+            }
+            }
+            //collaborate on O block loading
+            for (int k=tid;k<b_r*qkv_dim;k+=(WARP_SIZE*WARPS_PER_BLOCK)) {
+                output[head_prefix+(b_r*i+k/qkv_dim)*qkv_dim+(k%qkv_dim)]=shared_output[k/qkv_dim][k%qkv_dim];
+            }
         }
     }
 }
