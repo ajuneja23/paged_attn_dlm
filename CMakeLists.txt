@@ -4,7 +4,7 @@ project(fa1_forward)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-add_executable(fa1_forward fa1_forward.cpp)
+add_executable(fa1_forward fa1_forward.cpp fa1_forward.cu)
 target_link_libraries(fa1_forward "${TORCH_LIBRARIES}")
 set_property(TARGET fa1_forward PROPERTY CXX_STANDARD 17)
 
