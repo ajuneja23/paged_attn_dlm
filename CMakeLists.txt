@@ -5,9 +5,16 @@ project(fa1_forward)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 add_executable(fa1_forward fa1_forward.cpp fa1_forward.cu)
-target_link_libraries(fa1_forward "${TORCH_LIBRARIES}")
+target_link_libraries(fa1_forward)
 set_property(TARGET fa1_forward PROPERTY CXX_STANDARD 17)
 
+set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-12.2)
+
+include_directories(${CUDA_TOOLKIT_ROOT_DIR}/include)
+
+link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+
+target_link_libraries(fa1_forward cudart)
 # Force override any remaining problematic flags
 if(APPLE)
     set_target_properties(fa1_forward PROPERTIES

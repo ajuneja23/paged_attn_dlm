@@ -1,5 +1,5 @@
 #include <iostream>
-#include "fa1_fwd.cuh"
+#include "fa1_forward.cuh"
 #include <cuda_runtime.h>
 
 
@@ -45,7 +45,7 @@ int main() {
     dim3 threadsPerBlock(8,16);
     dim3 numBlocks((seq_len + threadsPerBlock.x - 1) / threadsPerBlock.x, num_heads);
 
-    fa1_fwd<float16, float32, 1024, 16><<<numBlocks, threadsPerBlock>>>(
+    fa1_fwd<__half, float, 1024, 16> <<<numBlocks, threadsPerBlock>>>(
         d_q, 
         d_k, 
         d_v, 
