@@ -1,4 +1,4 @@
-cmake -DCMAKE_PREFIX_PATH="~/projectxs/paged_attn_dlm/libtorch" .. -v
+cmake ..
 
-cmake --build . --config Release -v
+cmake --build . --config Release 
 
