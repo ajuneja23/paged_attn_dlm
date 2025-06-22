@@ -13,9 +13,9 @@ set_property(TARGET fa1_forward PROPERTY CXX_STANDARD 17)
 
 set(CUDAToolkit_ROOT /usr/local/cuda-12.2)
 
-include_directories(${CUDA_TOOLKIT_ROOT_DIR}/include)
+include_directories(${CUDAToolkit_ROOT}/include)
 
-link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+link_directories(${CUDAToolkit_ROOT}/lib64)
 
 # Force override any remaining problematic flags
 if(APPLE)

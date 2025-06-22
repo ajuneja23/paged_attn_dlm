@@ -33,4 +33,7 @@ template<typename T1, typename T2,int qkv_dim, int num_heads>
 __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* output,int seq_len);
 
 
+__host__ void fa1_fwd_wrapper();
+
+
 #endif
