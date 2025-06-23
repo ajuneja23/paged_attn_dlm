@@ -241,21 +241,21 @@ __host__ void fa1_fwd_wrapper() {
     constexpr int seq_len = 1024;
     constexpr int qkv_dim = 1024;
     constexpr int num_heads = 16;
-    float* d_q;
-    float* d_k;
-    float* d_v;
+    __half* d_q;
+    __half* d_k;
+    __half* d_v;
     float* d_maxValues;
     float* d_sumValues;
     float* d_output;
 
-    cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(float));
-    cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(float));
-    cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(float));
+    cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(__half));
+    cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(__half));
+    cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(__half));
     cudaMalloc(&d_maxValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
-    float* h_q = new float[num_heads * seq_len * qkv_dim];
-    float* h_k = new float[num_heads * seq_len * qkv_dim];
+    __half* h_q = new float[num_heads * seq_len * qkv_dim];
+    __half* h_k = new float[num_heads * seq_len * qkv_dim];
     float* h_v = new float[num_heads * seq_len * qkv_dim];
     for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
         h_q[i] = static_cast<float>(rand()) / RAND_MAX;
@@ -268,9 +268,9 @@ __host__ void fa1_fwd_wrapper() {
         h_maxValues[i] = -std::numeric_limits<float>::infinity();
         h_sumValues[i] = 0.0f;
     }
-    cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(__half), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(__half), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(__half), cudaMemcpyHostToDevice);
     cudaMemcpy(d_maxValues, h_maxValues, num_heads * seq_len * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_sumValues, h_sumValues, num_heads * seq_len * sizeof(float), cudaMemcpyHostToDevice);
 
