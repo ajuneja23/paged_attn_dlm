@@ -254,13 +254,13 @@ __host__ void fa1_fwd_wrapper() {
     cudaMalloc(&d_maxValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
-    __half* h_q = new float[num_heads * seq_len * qkv_dim];
-    __half* h_k = new float[num_heads * seq_len * qkv_dim];
-    float* h_v = new float[num_heads * seq_len * qkv_dim];
+    __half* h_q = new __half[num_heads * seq_len * qkv_dim];
+    __half* h_k = new __half[num_heads * seq_len * qkv_dim];
+    __half* h_v = new __half[num_heads * seq_len * qkv_dim];
     for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-        h_q[i] = static_cast<float>(rand()) / RAND_MAX;
-        h_k[i] = static_cast<float>(rand()) / RAND_MAX;
-        h_v[i] = static_cast<float>(rand()) / RAND_MAX;
+        h_q[i] = static_cast<__half>(rand()) / RAND_MAX;
+        h_k[i] = static_cast<__half>(rand()) / RAND_MAX;
+        h_v[i] = static_cast<__half>(rand()) / RAND_MAX;
     }
     float* h_maxValues = new float[num_heads * seq_len];
     float* h_sumValues = new float[num_heads * seq_len];
