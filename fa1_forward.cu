@@ -278,8 +278,7 @@ __host__ void fa1_fwd_wrapper() {
 
     dim3 threadsPerBlock(8,16);
     dim3 numBlocks((seq_len + threadsPerBlock.x - 1) / threadsPerBlock.x, num_heads);
-    auto kernel_call=fa1_fwd<__half, float, qkv_dim, num_heads, seq_len>;
-    kernel_call <<<numBlocks, threadsPerBlock>>>(
+    fa1_fwd<__half, float, qkv_dim, num_heads> <<<numBlocks, threadsPerBlock>>>(
         d_q, 
         d_k, 
         d_v, 
