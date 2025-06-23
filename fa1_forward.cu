@@ -19,22 +19,22 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int seq_len, 
         for (int j=0;j<qkv_dim/SHARED_Q_K_DIM;j++) {
             int q_uleft[2]={output_tile_uleft[0],j*SHARED_Q_K_DIM};
             int k_uleft[2]={output_tile_uleft[1],j*SHARED_Q_K_DIM};//storing transpose directly, row wise traversal for both Q, K tile
-            T1 q_elements[8]=[
-                shared_q[q_uleft[0]+laneid/4][q_uleft[1]+2*(laneid%4)],
-                shared_q[q_uleft[0]+laneid/4][q_uleft[1]+2*(laneid%4)+1],
-                shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+2*(laneid%4)],
-                shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+2*(laneid%4)+1],
-                shared_q[q_uleft[0]+laneid/4][q_uleft[1]+8+2*(laneid%4)],
-                shared_q[q_uleft[0]+laneid/4][q_uleft[1]+8+2*(laneid%4)+1],
-                shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+8+2*(laneid%4)],
-                shared_q[q_uleft[0]+laneid/4+8][q_uleft[1]+8+2*(laneid%4)+1]
-                ];//thank you to https://veitner.bearblog.dev/ for making the register loading a lot easier
-                T1 k_elements[4]=[
-                    shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)],
-                    shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)+1],
-                    shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)+8],
-                    shared_k[k_uleft[0]+laneid/4][k_uleft[1]+2*(laneid%4)+9]//danger
-                ];
+            T1 q_elements[8]={
+                shared_q[(q_uleft[0]+laneid/4)*qkv_dim+q_uleft[1]+2*(laneid%4)],
+                shared_q[(q_uleft[0]+laneid/4)*qkv_dim+q_uleft[1]+2*(laneid%4)+1],
+                shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+2*(laneid%4)],
+                shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+2*(laneid%4)+1],
+                shared_q[(q_uleft[0]+laneid/4)*qkv_dim+q_uleft[1]+8+2*(laneid%4)],
+                shared_q[(q_uleft[0]+laneid/4)*qkv_dim+q_uleft[1]+8+2*(laneid%4)+1],
+                shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+8+2*(laneid%4)],
+                shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+8+2*(laneid%4)+1]
+            };//thank you to https://veitner.bearblog.dev/ for making the register loading a lot easier
+                T1 k_elements[4]={
+                    shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)],
+                    shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+1],
+                    shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+8],
+                    shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+9]//danger
+                };
                 //use ptx instruction!
                     asm("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"//just handling the f32 accum f16 mat A,B pattern for now
                 "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
@@ -43,16 +43,16 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int seq_len, 
                     "f"(rC[0]), "f"(rC[1]), "f"(rC[2]), "f"(rC[3]));
     }
     //store to smem
-    shared_qkt[output_tile_uleft[0]+laneid/4][output_tile_uleft[1]+2*(laneid%4)]=rC[0];
-    shared_qkt[output_tile_uleft[0]+laneid/4][output_tile_uleft[1]+2*(laneid%4)+1]=rC[1];
-    shared_qkt[output_tile_uleft[0]+laneid/4+8][output_tile_uleft[1]+2*(laneid%4)]=rC[2];
-    shared_qkt[output_tile_uleft[0]+laneid/4+8][output_tile_uleft[1]+2*(laneid%4)+1]=rC[3];
+    shared_qkt[(output_tile_uleft[0]+laneid/4)*b_c+output_tile_uleft[1]+2*(laneid%4)]=rC[0];
+    shared_qkt[(output_tile_uleft[0]+laneid/4)*b_c+output_tile_uleft[1]+2*(laneid%4)+1]=rC[1];
+    shared_qkt[(output_tile_uleft[0]+laneid/4+8)*b_c+output_tile_uleft[1]+2*(laneid%4)]=rC[2];
+    shared_qkt[(output_tile_uleft[0]+laneid/4+8)*b_c+output_tile_uleft[1]+2*(laneid%4)+1]=rC[3];
     }
 }
 
 
 template<typename T1, typename T2, int b_c, int b_r>
-__device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues,T2* output, T2* intermediateRowMaxes, T2* intermediatePV, T1* casted_qkt, int warpid, int laneid) {
+__device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* shared_v,T2* output, T2* intermediateRowMaxes, T2* intermediatePV, T1* casted_qkt, int warpid, int laneid) {
     //calculate maxValues, P_{ij} matrix, and l_ij values. split work for each row across warps
 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
@@ -105,22 +105,22 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues,T2* o
         for (int j=0;j<(b_c/SHARED_Q_K_DIM);j++) {
             int p_u_left[2]={output_u_left[0],j*SHARED_Q_K_DIM};
             int v_u_left[2]={j*SHARED_Q_K_DIM,output_u_left[1]};
-            T1 p_elements[8]=[
-                casted_qkt[p_u_left[0]+laneid/4][p_u_left[1]+2*(laneid%4)],
-                casted_qkt[p_u_left[0]+laneid/4][p_u_left[1]+2*(laneid%4)+1],
-                casted_qkt[p_u_left[0]+laneid/4+8][p_u_left[1]+2*(laneid%4)],
-                casted_qkt[p_u_left[0]+laneid/4+8][p_u_left[1]+2*(laneid%4)+1],
-                casted_qkt[p_u_left[0]+laneid/4][p_u_left[1]+8+2*(laneid%4)],
-                casted_qkt[p_u_left[0]+laneid/4][p_u_left[1]+8+2*(laneid%4)+1],
-                casted_qkt[p_u_left[0]+laneid/4+8][p_u_left[1]+8+2*(laneid%4)],
-                casted_qkt[p_u_left[0]+laneid/4+8][p_u_left[1]+8+2*(laneid%4)+1]
-            ];
-            T1 v_elements[4]=[
-                shared_v[v_u_left[0]+2*(laneid%4)][v_u_left[1]+laneid/4],
-                shared_v[v_u_left[0]+2*(laneid%4)+1][v_u_left[1]+laneid/4],
-                shared_v[v_u_left[0]+2*(laneid%4)+8][v_u_left[1]+laneid/4],
-                shared_v[v_u_left[0]+2*(laneid%4)+9][v_u_left[1]+laneid/4]
-            ];
+            T1 p_elements[8]={
+                casted_qkt[(p_u_left[0]+laneid/4)*b_cp_u_left[1]+2*(laneid%4)],
+                casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+2*(laneid%4)+1],
+                casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+2*(laneid%4)],
+                casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+2*(laneid%4)+1],
+                casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+8+2*(laneid%4)],
+                casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+8+2*(laneid%4)+1],
+                casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+8+2*(laneid%4)],
+                casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+8+2*(laneid%4)+1]
+            };
+            T1 v_elements[4]={
+                shared_v[(v_u_left[0]+2*(laneid%4))*qkv_dim+v_u_left[1]+laneid/4],
+                shared_v[(v_u_left[0]+2*(laneid%4)+1)*qkv_dim+v_u_left[1]+laneid/4],
+                shared_v[(v_u_left[0]+2*(laneid%4)+8)*qkv_dim+v_u_left[1]+laneid/4],
+                shared_v[(v_u_left[0]+2*(laneid%4)+9)*qkv_dim+v_u_left[1]+laneid/4]
+            };
             //use ptx instruction!
             asm("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"//just handling the f32 accum f16 mat A,B pattern for now
         "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
@@ -128,10 +128,10 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues,T2* o
         : "r"(casted_qkt[0]), "r"(casted_qkt[1]), "r"(casted_qkt[2]), "r"(casted_qkt[3]), "r"(v_elements[0]), "r"(v_elements[1]),
             "f"(rC[0]), "f"(rC[1]), "f"(rC[2]), "f"(rC[3]));
         }
-        intermediatePV[output_u_left[0]+laneid/4][output_u_left[1]+2*(laneid%4)]=rC[0];
-        intermediatePV[output_u_left[0]+laneid/4][output_u_left[1]+2*(laneid%4)+1]=rC[1];
-        intermediatePV[output_u_left[0]+laneid/4+8][output_u_left[1]+2*(laneid%4)]=rC[2];
-        intermediatePV[output_u_left[0]+laneid/4+8][output_u_left[1]+2*(laneid%4)+1]=rC[3];
+        intermediatePV[(output_u_left[0]+laneid/4)*qkv_dim+output_u_left[1]+2*(laneid%4)]=rC[0];
+        intermediatePV[(output_u_left[0]+laneid/4)*qkv_dim+output_u_left[1]+2*(laneid%4)+1]=rC[1];
+        intermediatePV[(output_u_left[0]+laneid/4+8)*qkv_dim+output_u_left[1]+2*(laneid%4)]=rC[2];
+        intermediatePV[(output_u_left[0]+laneid/4+8)*qkv_dim+output_u_left[1]+2*(laneid%4)+1]=rC[3];
     }
     __syncthreads();
     //final O_i update
@@ -218,7 +218,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
                 shared_output[k/qkv_dim][k%qkv_dim]=output[head_prefix+(b_r*i+k/qkv_dim)*qkv_dim+(k%qkv_dim)];
             }
             __syncthreads();
-            reductionStep<T1,T2,b_c,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid);
+            reductionStep<T1,T2,b_c,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid);
             __syncthreads();
             //write output to DRAM
             if (warpid < WARPS_PER_BLOCK/2) {
