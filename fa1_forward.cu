@@ -2,6 +2,7 @@
 #include <mma.h>
 #include <iostream>
 #include "fa1_forward.cuh"
+#include <limits>
 
 
 
@@ -106,7 +107,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
             int p_u_left[2]={output_u_left[0],j*SHARED_Q_K_DIM};
             int v_u_left[2]={j*SHARED_Q_K_DIM,output_u_left[1]};
             T1 p_elements[8]={
-                casted_qkt[(p_u_left[0]+laneid/4)*b_cp_u_left[1]+2*(laneid%4)],
+                casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+2*(laneid%4)],
                 casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+2*(laneid%4)+1],
                 casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+2*(laneid%4)],
                 casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+2*(laneid%4)+1],
@@ -173,30 +174,24 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
     int head_id=bid;
     if (bid < num_heads) {//bid=head_id
         int head_prefix=head_id*seq_len*qkv_dim;
-        constexpr int b_c=seq_len/(4*qkv_dim);//split k,v into tiles of this size on seq_len dim 
-        constexpr int b_r=min(b_c,qkv_dim);//split q into tiles of this on seq_len dim
-        constexpr int t_c=ceil(seq_len/b_c);
-        constexpr int t_r=ceil(seq_len/b_r);
+        int t_c=ceil(seq_len/b_c);
+        int t_r=ceil(seq_len/b_r);
         for (int j=0;j<t_c;j++) {//load in qkv_dim*b_c elements
             int elementsToLoad=b_c*qkv_dim;
             int seq_prefix=j*b_c*qkv_dim;
-            for (int k=0;k<elementsToLoad;k+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                if (k+tid<elementsToLoad) {
-                    shared_k[(k+tid)/qkv_dim][(k+tid)%qkv_dim]=k[head_prefix+seq_prefix+k+tid];
-                    shared_v[(k+tid)/qkv_dim][(k+tid)%qkv_dim]=v[head_prefix+seq_prefix+k+tid];
-                }//split k pattern
+            for (int z=tid;z<elementsToLoad;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
+                shared_k[z/qkv_dim][z%qkv_dim]=k[head_prefix+seq_prefix+z];
+                shared_v[z/qkv_dim][z%qkv_dim]=v[head_prefix+seq_prefix+z];
             }
             __syncthreads();
             for (int i=0;i<t_r;i++) {
                 int q_prefix=i*b_r*qkv_dim; 
                 int elementsToLoad=b_r*qkv_dim;
-                for (int k=0;k<elementsToLoad;k+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                    if (k+tid<elementsToLoad) {
-                        shared_q[(k+tid)/qkv_dim][(k+tid)%qkv_dim]=q[head_prefix+q_prefix+k+tid];
-                    }
+                for (int z=tid;z<elementsToLoad;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
+                    shared_q[(z+tid)/qkv_dim][(z+tid)%qkv_dim]=q[head_prefix+q_prefix+z];
 
                 }
-            }
+            
             //load in maxValues, sumValues
 
             __syncthreads();
@@ -205,36 +200,38 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
             //load in all required sram utils from dram 
             //first half of warps load in maxValues, second half load in sumValues
             if (warpid < WARPS_PER_BLOCK/2) {
-                for(int k=tid;k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
-                    shared_maxValues[k]=maxValues[i*b_r+k];
+                for(int z=tid;z<b_r;z+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    shared_maxValues[z]=maxValues[head_id*seq_len+i*b_r+z];
                 }
             } else {
-                for (int k=tid-(WARP_SIZE*WARPS_PER_BLOCK/2);k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
-                    shared_sumValues[k]=sumValues[i*b_r+k];
-            }
+                for (int z=tid-(WARP_SIZE*WARPS_PER_BLOCK/2);z<b_r;z+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    shared_sumValues[z]=sumValues[head_id*seq_len+i*b_r+z];
+                }
             }
             //collaborate on O block loading
-            for (int k=tid;k<b_r*qkv_dim;k+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                shared_output[k/qkv_dim][k%qkv_dim]=output[head_prefix+(b_r*i+k/qkv_dim)*qkv_dim+(k%qkv_dim)];
+            for (int z=tid;z<b_r*qkv_dim;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
+                shared_output[z/qkv_dim][z%qkv_dim]=output[head_prefix+(b_r*j+z/qkv_dim)*qkv_dim+(z%qkv_dim)];
             }
             __syncthreads();
             reductionStep<T1,T2,b_c,b_r,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid,tid);
             __syncthreads();
             //write output to DRAM
             if (warpid < WARPS_PER_BLOCK/2) {
-                for(int k=tid;k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
-                    maxValues[i*b_r+k]=shared_maxValues[k];
+                for(int z=tid;z<b_r;z+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    maxValues[i*b_r+z]=shared_maxValues[z];
                 }
             } else {
-                for (int k=tid-(WARP_SIZE*WARPS_PER_BLOCK/2);k<b_r;k+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
-                    sumValues[i*b_r+k]=shared_sumValues[k];
+                for (int z=tid-(WARP_SIZE*WARPS_PER_BLOCK/2);z<b_r;z+=(WARP_SIZE*WARPS_PER_BLOCK/2)) {
+                    sumValues[i*b_r+z]=shared_sumValues[z];
             }
             }
             //collaborate on O block loading
-            for (int k=tid;k<b_r*qkv_dim;k+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                output[head_prefix+(b_r*i+k/qkv_dim)*qkv_dim+(k%qkv_dim)]=shared_output[k/qkv_dim][k%qkv_dim];
+            for (int z=tid;z<b_r*qkv_dim;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
+                output[head_prefix+(b_r*i+z/qkv_dim)*qkv_dim+(z%qkv_dim)]=shared_output[z/qkv_dim][z%qkv_dim];
             }
         }
+        
+    }
     }
 }
 
