@@ -6,7 +6,7 @@
 
 
 template <typename T1, typename T2,int b_c, int b_r, int qkv_dim>
-__device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int seq_len, int laneid,int warpid) {
+__device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int laneid,int warpid) {
     int req_x_tiles=ceil(b_c/TILE_Y_SIZE);
     int req_y_tiles=ceil(b_r/TILE_X_SIZE);
     int req_tiles=req_x_tiles*req_y_tiles;//# of tiles in full qk^t block output
@@ -51,8 +51,8 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int seq_len, 
 }
 
 
-template<typename T1, typename T2, int b_c, int b_r>
-__device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* shared_v,T2* output, T2* intermediateRowMaxes, T2* intermediatePV, T1* casted_qkt, int warpid, int laneid) {
+template<typename T1, typename T2, int b_c, int b_r,int qkv_dim>
+__device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* shared_v,T2* output, T2* intermediateRowMaxes, T2* intermediatePV, T1* casted_qkt, int warpid, int laneid, int tid) {
     //calculate maxValues, P_{ij} matrix, and l_ij values. split work for each row across warps
 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
@@ -155,8 +155,8 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
 {//q layout is (qkv_dim,seq_len,num_heads): (1, qkv_dim,qkv_dim*seq_len). same for k,v 
     int tid=threadIdx.y*blockDim.x+threadIdx.x;
     int bid=blockIdx.y*gridDim.x+blockIdx.x;
-    int b_c=seq_len/(4*qkv_dim);
-    int b_r=min(b_c,qkv_dim);
+    constexpr int b_c=seq_len/(4*qkv_dim);
+    constexpr int b_r=min(b_c,qkv_dim);
     extern __shared__ T1 shared_q[b_r][qkv_dim];
     extern __shared__ T1 shared_k[b_c][qkv_dim];
     extern __shared__ T1 shared_v[b_c][qkv_dim]; 
@@ -173,10 +173,10 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
     int head_id=bid;
     if (bid < num_heads) {//bid=head_id
         int head_prefix=head_id*seq_len*qkv_dim;
-        int b_c=seq_len/(4*qkv_dim);//split k,v into tiles of this size on seq_len dim 
-        int b_r=min(b_c,qkv_dim);//split q into tiles of this on seq_len dim
-        int t_c=ceil(seq_len/b_c);
-        int t_r=ceil(seq_len/b_r);
+        constexpr int b_c=seq_len/(4*qkv_dim);//split k,v into tiles of this size on seq_len dim 
+        constexpr int b_r=min(b_c,qkv_dim);//split q into tiles of this on seq_len dim
+        constexpr int t_c=ceil(seq_len/b_c);
+        constexpr int t_r=ceil(seq_len/b_r);
         for (int j=0;j<t_c;j++) {//load in qkv_dim*b_c elements
             int elementsToLoad=b_c*qkv_dim;
             int seq_prefix=j*b_c*qkv_dim;
@@ -200,7 +200,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
             //load in maxValues, sumValues
 
             __syncthreads();
-            calcQKT<T1,T2,b_c,qkv_dim>(shared_q,shared_k,shared_qkt,seq_len,laneid,warpid);
+            calcQKT<T1,T2,b_c,b_r,qkv_dim>(shared_q,shared_k,shared_qkt,laneid,warpid);
             __syncthreads(); 
             //load in all required sram utils from dram 
             //first half of warps load in maxValues, second half load in sumValues
@@ -218,7 +218,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
                 shared_output[k/qkv_dim][k%qkv_dim]=output[head_prefix+(b_r*i+k/qkv_dim)*qkv_dim+(k%qkv_dim)];
             }
             __syncthreads();
-            reductionStep<T1,T2,b_c,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid);
+            reductionStep<T1,T2,b_c,b_r,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid,tid);
             __syncthreads();
             //write output to DRAM
             if (warpid < WARPS_PER_BLOCK/2) {
@@ -241,9 +241,9 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
 
 __host__ void fa1_fwd_wrapper() {
 
-    int seq_len = 1024;
-    int qkv_dim = 1024;
-    int num_heads = 16;
+    constexpr int seq_len = 1024;
+    constexpr int qkv_dim = 1024;
+    constexpr int num_heads = 16;
     float* d_q;
     float* d_k;
     float* d_v;
@@ -279,7 +279,7 @@ __host__ void fa1_fwd_wrapper() {
 
     dim3 threadsPerBlock(8,16);
     dim3 numBlocks((seq_len + threadsPerBlock.x - 1) / threadsPerBlock.x, num_heads);
-    auto kernel_call=fa1_fwd<__half, float, 1024, 16>;
+    auto kernel_call=fa1_fwd<__half, float, qkv_dim, num_heads>;
     kernel_call <<<numBlocks, threadsPerBlock>>>(
         d_q, 
         d_k, 
