@@ -2,8 +2,7 @@
 #include <mma.h>
 #include <iostream>
 #include "fa1_forward.cuh"
-#include <limits>
-#include <cmath>
+#include <random>
 
 
 
@@ -256,12 +255,14 @@ __host__ void fa1_fwd_wrapper() {
     cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
     __half* h_q = new __half[num_heads * seq_len * qkv_dim];
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<float> dis(0.0f, 1.0f);
     __half* h_k = new __half[num_heads * seq_len * qkv_dim];
     __half* h_v = new __half[num_heads * seq_len * qkv_dim];
     for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-        h_q[i]=static_cast<__half>(std::uniform_real_distribution<float>(0.0f, 1.0f));
-        h_k[i]=static_cast<__half>(std::uniform_real_distribution<float>(0.0f, 1.0f));
-        h_v[i]=static_cast<__half>(std::uniform_real_distribution<float>(0.0f, 1.0f));
+        h_q[i]=static_cast<__half>(dis(gen));
+        h_k[i]=static_cast<__half>(dis(gen));
+        h_v[i]=static_cast<__half>(dis(gen));
     }
     float* h_maxValues = new float[num_heads * seq_len];
     float* h_sumValues = new float[num_heads * seq_len];
