@@ -284,7 +284,8 @@ __host__ void fa1_fwd_wrapper() {
         d_v, 
         d_maxValues, 
         d_sumValues, 
-        d_output
+        d_output,
+        seq_len
     );
 
     // Copy the result back to host
