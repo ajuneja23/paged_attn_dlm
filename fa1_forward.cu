@@ -3,6 +3,7 @@
 #include <iostream>
 #include "fa1_forward.cuh"
 #include <limits>
+#include <cmath>
 
 
 
@@ -258,9 +259,9 @@ __host__ void fa1_fwd_wrapper() {
     __half* h_k = new __half[num_heads * seq_len * qkv_dim];
     __half* h_v = new __half[num_heads * seq_len * qkv_dim];
     for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-        h_q[i] = static_cast<__half>(rand()) / RAND_MAX;
-        h_k[i] = static_cast<__half>(rand()) / RAND_MAX;
-        h_v[i] = static_cast<__half>(rand()) / RAND_MAX;
+        h_q[i]=static_cast<__half>(std::uniform_real_distribution<float>(0.0f, 1.0f));
+        h_k[i]=static_cast<__half>(std::uniform_real_distribution<float>(0.0f, 1.0f));
+        h_v[i]=static_cast<__half>(std::uniform_real_distribution<float>(0.0f, 1.0f));
     }
     float* h_maxValues = new float[num_heads * seq_len];
     float* h_sumValues = new float[num_heads * seq_len];
