@@ -250,7 +250,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
                 shared_output[z/qkv_dim][z%qkv_dim]=output[head_prefix+(b_r*j+z/qkv_dim)*qkv_dim+(z%qkv_dim)];
             }
             __syncthreads();
-            reductionStep<T1,T2,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,casted_qkt,warpid,laneid,tid,b_c,b_r);
+            reductionStep<T1,T2,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,shared_casted_qkt,warpid,laneid,tid,b_c,b_r);
             __syncthreads();
             //write output to DRAM
             if (warpid < WARPS_PER_BLOCK/2) {
