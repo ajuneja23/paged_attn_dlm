@@ -195,16 +195,16 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
     extern __shared__ char shared_mem[];
-    T1* shared_q=reinterpret_cast<T1*>(shared_mem+sizePrefixes[0]);
-    T1* shared_k=reintepret_cast<T1*>(shared_mem+sizePrefixes[1]);
-    T1* shared_v=reintepret_cast<T1*>(shared_mem+sizePrefixes[2]);
-    T2* shared_maxValues=reinterpret_cast<T2*>(shared_mem+sizePrefixes[3]);
-    T2* shared_sumValues=reinterpret_cast<T2*>(shared_mem+sizePrefixes[4]);
-    T2* shared_output=reinterpret_cast<T2*>(shared_mem+sizePrefixes[5]);
-    T2* shared_qkt=reinterpret_cast<T2*>(shared_mem+sizePrefixes[6]);
-    T2* shared_intermediateRowMaxes=reinterpret_cast<T2*>(shared_mem+sizePrefixes[7]);
-    T1* shared_casted_qkt=reinterpret_cast<T1*>(shared_mem+sizePrefixes[8]);
-    T2* shared_intermediatePV=reinterpret_cast<T2*>(shared_mem+sizePrefixes[9]);
+    T1* shared_q= (T1*)(shared_mem+sizePrefixes[0]);
+    T1* shared_k= (T1*)(shared_mem+sizePrefixes[1]);
+    T1* shared_v= (T1*)(shared_mem+sizePrefixes[2]);
+    T2* shared_maxValues= (T2*)(shared_mem+sizePrefixes[3]);
+    T2* shared_sumValues= (T2*)(shared_mem+sizePrefixes[4]);
+    T2* shared_output= (T2*)(shared_mem+sizePrefixes[5]);
+    T2* shared_qkt= (T2*)(shared_mem+sizePrefixes[6]);
+    T2* shared_intermediateRowMaxes= (T2*)(shared_mem+sizePrefixes[7]);
+    T1* shared_casted_qkt= (T1*)(shared_mem+sizePrefixes[8]);
+    T2* shared_intermediatePV= (T2*)(shared_mem+sizePrefixes[9]);
     int warpid=tid/WARP_SIZE;
     int laneid=tid%WARP_SIZE;
 
