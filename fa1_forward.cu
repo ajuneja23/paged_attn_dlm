@@ -8,8 +8,8 @@
 
 template <typename T1, typename T2, int qkv_dim>
 __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int laneid,int warpid, int b_c, int b_r) {
-    int req_x_tiles=ceil(b_c/TILE_Y_SIZE);
-    int req_y_tiles=ceil(b_r/TILE_X_SIZE);
+    int req_x_tiles=ceilf(b_c/TILE_Y_SIZE);
+    int req_y_tiles=ceilf(b_r/TILE_X_SIZE);
     int req_tiles=req_x_tiles*req_y_tiles;//# of tiles in full qk^t block output
     for (int i=warpid;i<req_tiles;i+=WARPS_PER_BLOCK) {
 
@@ -59,7 +59,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
         T2 m_ijProposal=-INFINITY;
         for (int j=laneid;j<b_c;j+=WARP_SIZE) {
-            T2 m_ijProposal=max(m_ijProposal,shared_qkt[i][j]);
+            T2 m_ijProposal=max(m_ijProposal,shared_qkt[i*b_c+j]);
         }
         for (int offset=WARP_SIZE/2;offset>0;offset>>=1) {
             m_ijProposal=max(m_ijProposal,__shfl_down_sync(0xFFFFFFFF,m_ijProposal,offset));
@@ -70,9 +70,9 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
         m_ijProposal=__shfl_sync(0xFFFFFFFF,m_ijProposal,0);
         T2 runningSum=0;
         for (int j=laneid;j<b_c;j+=WARP_SIZE) {
-            shared_qkt[i][j]-=m_ijProposal;
-            shared_qkt[i][j]=exp(shared_qkt[i][j]);
-            runningSum+=shared_qkt[i][j];
+            shared_qkt[i*b_c+j]-=m_ijProposal;
+            shared_qkt[i*b_c+j]=exp(shared_qkt[i*b_c+j]);
+            runningSum+=shared_qkt[i*b_c+j];
         }
         for (int offset=WARP_SIZE/2;offset>0;offset>>=1) {
             runningSum+=__shfl_down_sync(0xFFFFFFFF,runningSum,offset);//l_{ij} calculation
@@ -86,14 +86,14 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
         }
         //update O_i
         for (int j=laneid;j<qkv_dim;j+=WARP_SIZE) {
-            output[i][j]=(curRunningSum/l_inew)*exp(curMax-max(curMax,m_ijProposal))*output[i][j];
+            output[i*qkv_dimj]=(curRunningSum/l_inew)*exp(curMax-max(curMax,m_ijProposal))*output[i*qkv_dim+j];
         }
         sumValues[i]=l_inew;
         __syncthreads();
     }
     //cast qkt to T1
     for (int i=tid;i<b_r*b_c;i+=WARP_SIZE*WARPS_PER_BLOCK) {
-        casted_qkt[i/b_c][i%b_c]=shared_qkt[i/b_c][i%b_c];
+        casted_qkt[i]=(T1)shared_qkt[i];
     }
     __syncthreads();
     //handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x b_c(16x16 tiling). v_j is shared_v as a b_c x qkv_dim (16x8 tiling) 
@@ -139,7 +139,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
         T2 coefficient=exp(intermediateRowMaxes[i]-maxValues[i])/sumValues[i];
         for (int j=laneid;j<qkv_dim;j+=WARP_SIZE) {
-            output[i][j]+=coefficient*intermediatePV[i][j];
+            output[i*qkv_dim+j]+=coefficient*intermediatePV[i*qkv_dim+j];
         }
 
     }
@@ -217,15 +217,15 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
             int elementsToLoad=b_c*qkv_dim;
             int seq_prefix=j*b_c*qkv_dim;
             for (int z=tid;z<elementsToLoad;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                shared_k[z/qkv_dim][z%qkv_dim]=k[head_prefix+seq_prefix+z];
-                shared_v[z/qkv_dim][z%qkv_dim]=v[head_prefix+seq_prefix+z];
+                shared_k[z]=k[head_prefix+seq_prefix+z];
+                shared_v[z]=v[head_prefix+seq_prefix+z];
             }
             __syncthreads();
             for (int i=0;i<t_r;i++) {
                 int q_prefix=i*b_r*qkv_dim; 
                 int elementsToLoad=b_r*qkv_dim;
                 for (int z=tid;z<elementsToLoad;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                    shared_q[(z+tid)/qkv_dim][(z+tid)%qkv_dim]=q[head_prefix+q_prefix+z];
+                    shared_q[z]=q[head_prefix+q_prefix+z];
 
                 }
             
@@ -247,7 +247,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
             }
             //collaborate on O block loading
             for (int z=tid;z<b_r*qkv_dim;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                shared_output[z/qkv_dim][z%qkv_dim]=output[head_prefix+(b_r*j+z/qkv_dim)*qkv_dim+(z%qkv_dim)];
+                shared_output[z]=output[head_prefix+(b_r*j+z/qkv_dim)*qkv_dim+(z%qkv_dim)];
             }
             __syncthreads();
             reductionStep<T1,T2,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,shared_casted_qkt,warpid,laneid,tid,b_c,b_r);
@@ -264,7 +264,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
             }
             //collaborate on O block loading
             for (int z=tid;z<b_r*qkv_dim;z+=(WARP_SIZE*WARPS_PER_BLOCK)) {
-                output[head_prefix+(b_r*i+z/qkv_dim)*qkv_dim+(z%qkv_dim)]=shared_output[z/qkv_dim][z%qkv_dim];
+                output[head_prefix+(b_r*i+z/qkv_dim)*qkv_dim+(z%qkv_dim)]=shared_output[z];
             }
         }
         
