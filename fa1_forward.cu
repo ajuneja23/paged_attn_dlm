@@ -7,8 +7,8 @@
 
 
 
-template <typename T1, typename T2, int qkv_dim>
-__device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int laneid,int warpid, int b_c, int b_r) {
+template<int qkv_dim>
+__device__ void calcQKT(__half* shared_q, __half* shared_k, float* shared_qkt,int laneid,int warpid, int b_c, int b_r) {
     int req_x_tiles=ceilf(b_c/TILE_Y_SIZE);
     int req_y_tiles=ceilf(b_r/TILE_X_SIZE);
     int req_tiles=req_x_tiles*req_y_tiles;//# of tiles in full qk^t block output
@@ -17,11 +17,11 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int laneid,in
         int x_idx=(i)%req_x_tiles;
         int y_idx=(i)/req_x_tiles;
         int output_tile_uleft[2]={y_idx*TILE_Y_SIZE,x_idx*TILE_X_SIZE};//upper left's row, col
-        T2 rC[4]={0,0,0,0};
+        float rC[4]={0,0,0,0};
         for (int j=0;j<qkv_dim/SHARED_Q_K_DIM;j++) {
             int q_uleft[2]={output_tile_uleft[0],j*SHARED_Q_K_DIM};
             int k_uleft[2]={output_tile_uleft[1],j*SHARED_Q_K_DIM};//storing transpose directly, row wise traversal for both Q, K tile
-            T1 q_elements[8]={
+            __half q_elements[8]={
                 shared_q[(q_uleft[0]+laneid/4)*qkv_dim+q_uleft[1]+2*(laneid%4)],
                 shared_q[(q_uleft[0]+laneid/4)*qkv_dim+q_uleft[1]+2*(laneid%4)+1],
                 shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+2*(laneid%4)],
@@ -31,7 +31,7 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int laneid,in
                 shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+8+2*(laneid%4)],
                 shared_q[(q_uleft[0]+laneid/4+8)*qkv_dim+q_uleft[1]+8+2*(laneid%4)+1]
             };//thank you to https://veitner.bearblog.dev/ for making the register loading a lot easier
-                T1 k_elements[4]={
+                __half k_elements[4]={
                     shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)],
                     shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+1],
                     shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+8],
@@ -53,14 +53,14 @@ __device__ void calcQKT(T1* shared_q, T1* shared_k, T2* shared_qkt,int laneid,in
 }
 
 
-template<typename T1, typename T2,int qkv_dim>
-__device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* shared_v,T2* output, T2* intermediateRowMaxes, T2* intermediatePV, T1* casted_qkt, int warpid, int laneid, int tid, int b_c, int b_r) {
+template<int qkv_dim>
+__device__ void reductionStep(float* shared_qkt, float* maxValues, float* sumValues, __half* shared_v,float* output, float* intermediateRowMaxes, float* intermediatePV, __half* casted_qkt, int warpid, int laneid, int tid, int b_c, int b_r) {
     //calculate maxValues, P_{ij} matrix, and l_ij values. split work for each row across warps
 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
-        T2 m_ijProposal=-INFINITY;
+        float m_ijProposal=-INFINITY;
         for (int j=laneid;j<b_c;j+=WARP_SIZE) {
-            T2 m_ijProposal=max(m_ijProposal,shared_qkt[i*b_c+j]);
+            float m_ijProposal=max(m_ijProposal,shared_qkt[i*b_c+j]);
         }
         for (int offset=WARP_SIZE/2;offset>0;offset>>=1) {
             m_ijProposal=max(m_ijProposal,__shfl_down_sync(0xFFFFFFFF,m_ijProposal,offset));
@@ -69,7 +69,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
             maxValues[i]=max(maxValues[i],m_ijProposal);
         }
         m_ijProposal=__shfl_sync(0xFFFFFFFF,m_ijProposal,0);
-        T2 runningSum=0;
+        float runningSum=0;
         for (int j=laneid;j<b_c;j+=WARP_SIZE) {
             shared_qkt[i*b_c+j]-=m_ijProposal;
             shared_qkt[i*b_c+j]=exp(shared_qkt[i*b_c+j]);
@@ -79,9 +79,9 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
             runningSum+=__shfl_down_sync(0xFFFFFFFF,runningSum,offset);//l_{ij} calculation
         }
         runningSum=__shfl_sync(0xFFFFFFFF,runningSum,0);
-        T2 curMax=maxValues[i];
-        T2 curRunningSum=sumValues[i];//m_i
-        T2 l_inew=exp(curMax-max(curMax,m_ijProposal))*curRunningSum+exp(m_ijProposal-max(curMax,m_ijProposal))*runningSum;//l_i^{new} 
+        float curMax=maxValues[i];
+        float curRunningSum=sumValues[i];//m_i
+        float l_inew=exp(curMax-max(curMax,m_ijProposal))*curRunningSum+exp(m_ijProposal-max(curMax,m_ijProposal))*runningSum;//l_i^{new} 
         if (laneid == 0) {
             intermediateRowMaxes[i]=m_ijProposal;
         }
@@ -92,9 +92,9 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
         sumValues[i]=l_inew;
         __syncthreads();
     }
-    //cast qkt to T1
+    //cast qkt to __half
     for (int i=tid;i<b_r*b_c;i+=WARP_SIZE*WARPS_PER_BLOCK) {
-        casted_qkt[i]=__float2half(shared_qkt[i]);
+        casted_qkt[i]=__floafloathalf(shared_qkt[i]);
     }
     __syncthreads();
     //handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x b_c(16x16 tiling). v_j is shared_v as a b_c x qkv_dim (16x8 tiling) 
@@ -102,12 +102,12 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
     int req_y_tiles=ceilf(b_c/TILE_Y_SIZE);
     int req_tiles=req_x_tiles*req_y_tiles;
     for (int i=warpid;i<req_tiles;i+=WARPS_PER_BLOCK) {
-        T2 rC[4]={0,0,0,0};
+        float rC[4]={0,0,0,0};
         int output_u_left[2]={(i)/req_x_tiles*TILE_Y_SIZE,(i)%req_x_tiles*TILE_X_SIZE};//split output tile work across warps 
         for (int j=0;j<(b_c/SHARED_Q_K_DIM);j++) {
             int p_u_left[2]={output_u_left[0],j*SHARED_Q_K_DIM};
             int v_u_left[2]={j*SHARED_Q_K_DIM,output_u_left[1]};
-            T1 p_elements[8]={
+            __half p_elements[8]={
                 casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+2*(laneid%4)],
                 casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+2*(laneid%4)+1],
                 casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+2*(laneid%4)],
@@ -117,7 +117,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
                 casted_qkt[(p_u_left[0]+laneid/4)*b_c+p_u_left[1]+8+2*(laneid%4)],
                 casted_qkt[(p_u_left[0]+laneid/4+8)*b_c+p_u_left[1]+8+2*(laneid%4)+1]
             };
-            T1 v_elements[4]={
+            __half v_elements[4]={
                 shared_v[(v_u_left[0]+2*(laneid%4))*qkv_dim+v_u_left[1]+laneid/4],
                 shared_v[(v_u_left[0]+2*(laneid%4)+1)*qkv_dim+v_u_left[1]+laneid/4],
                 shared_v[(v_u_left[0]+2*(laneid%4)+8)*qkv_dim+v_u_left[1]+laneid/4],
@@ -138,7 +138,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
     __syncthreads();
     //final O_i update
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
-        T2 coefficient=exp(intermediateRowMaxes[i]-maxValues[i])/sumValues[i];
+        float coefficient=exp(intermediateRowMaxes[i]-maxValues[i])/sumValues[i];
         for (int j=laneid;j<qkv_dim;j+=WARP_SIZE) {
             output[i*qkv_dim+j]+=coefficient*intermediatePV[i*qkv_dim+j];
         }
@@ -152,30 +152,30 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
 
 
 //parallelize on heads first
-template<typename T1, typename T2,int qkv_dim, int num_heads>
-__global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* output, int seq_len)
+template<int qkv_dim, int num_heads>
+__global__ void fa1_fwd(__half* q, __half* k, __half* v, float* maxValues, float* sumValues, float* output, int seq_len)
 {//q layout is (qkv_dim,seq_len,num_heads): (1, qkv_dim,qkv_dim*seq_len). same for k,v 
     int tid=threadIdx.y*blockDim.x+threadIdx.x;
     int bid=blockIdx.y*gridDim.x+blockIdx.x;
     int b_c=seq_len/(4*qkv_dim);
     int b_r=min(b_c,qkv_dim);
-    // extern __shared__ T1 shared_q[b_r][qkv_dim];
-    // extern __shared__ T1 shared_k[b_c][qkv_dim];
-    // extern __shared__ T1 shared_v[b_c][qkv_dim]; 
-    // extern __shared__ T2 shared_maxValues[b_r];
-    // extern __shared__ T2 shared_sumValues[b_r];
-    // extern __shared__ T2 shared_output[b_r][qkv_dim];
-    // extern __shared__ T2 shared_qkt[b_r][b_c];
-    // extern __shared__ T2 shared_intermediateRowMaxes[b_r];
-    // extern __shared__ T1 casted_qkt[b_r][b_c];
-    // extern __shared__ T2 shared_intermediatePV[b_r][qkv_dim];//need to combine all of this into one shmem
-    shared_mem_requirements<T1> T1shmem_req[4]={
+    // extern __shared__ __half shared_q[b_r][qkv_dim];
+    // extern __shared__ __half shared_k[b_c][qkv_dim];
+    // extern __shared__ __half shared_v[b_c][qkv_dim]; 
+    // extern __shared__ float shared_maxValues[b_r];
+    // extern __shared__ float shared_sumValues[b_r];
+    // extern __shared__ float shared_output[b_r][qkv_dim];
+    // extern __shared__ float shared_qkt[b_r][b_c];
+    // extern __shared__ float shared_intermediateRowMaxes[b_r];
+    // extern __shared__ __half casted_qkt[b_r][b_c];
+    // extern __shared__ float shared_intermediatePV[b_r][qkv_dim];//need to combine all of this into one shmem
+    shared_mem_requirements<__half> __halfshmem_req[4]={
         {{b_r,qkv_dim}},
         {{b_c,qkv_dim}},
         {{b_c,qkv_dim}},
         {{b_r,b_c}},
     };
-    shared_mem_requirements<T2> T2shmem_req[6]={
+    shared_mem_requirements<float> floatshmem_req[6]={
         {{b_r,1}},
         {{b_r,1}},
         {{b_r,qkv_dim}},
@@ -186,26 +186,26 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
     int total_size=0;
     int sizePrefixes[10]={0};
     for (int i=0;i<4;i++) {
-        int byteCount=T1shmem_req[i].dims[0]*T1shmem_req[i].dims[1]*sizeof(T1);
+        int byteCount=__halfshmem_req[i].dims[0]*__halfshmem_req[i].dims[1]*sizeof(__half);
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
     for (int i=4;i<10;i++) {
-        int byteCount=T2shmem_req[i-4].dims[0]*T2shmem_req[i-4].dims[1]*sizeof(T2);
+        int byteCount=floatshmem_req[i-4].dims[0]*floatshmem_req[i-4].dims[1]*sizeof(float);
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
     extern __shared__ char shared_mem[];
-    T1* shared_q= (T1*)(shared_mem+sizePrefixes[0]);
-    T1* shared_k= (T1*)(shared_mem+sizePrefixes[1]);
-    T1* shared_v= (T1*)(shared_mem+sizePrefixes[2]);
-    T2* shared_maxValues= (T2*)(shared_mem+sizePrefixes[3]);
-    T2* shared_sumValues= (T2*)(shared_mem+sizePrefixes[4]);
-    T2* shared_output= (T2*)(shared_mem+sizePrefixes[5]);
-    T2* shared_qkt= (T2*)(shared_mem+sizePrefixes[6]);
-    T2* shared_intermediateRowMaxes= (T2*)(shared_mem+sizePrefixes[7]);
-    T1* shared_casted_qkt= (T1*)(shared_mem+sizePrefixes[8]);
-    T2* shared_intermediatePV= (T2*)(shared_mem+sizePrefixes[9]);
+    __half* shared_q= (__half*)(shared_mem+sizePrefixes[0]);
+    __half* shared_k= (__half*)(shared_mem+sizePrefixes[1]);
+    __half* shared_v= (__half*)(shared_mem+sizePrefixes[2]);
+    float* shared_maxValues= (float*)(shared_mem+sizePrefixes[3]);
+    float* shared_sumValues= (float*)(shared_mem+sizePrefixes[4]);
+    float* shared_output= (float*)(shared_mem+sizePrefixes[5]);
+    float* shared_qkt= (float*)(shared_mem+sizePrefixes[6]);
+    float* shared_intermediateRowMaxes= (float*)(shared_mem+sizePrefixes[7]);
+    __half* shared_casted_qkt= (__half*)(shared_mem+sizePrefixes[8]);
+    float* shared_intermediatePV= (float*)(shared_mem+sizePrefixes[9]);
     int warpid=tid/WARP_SIZE;
     int laneid=tid%WARP_SIZE;
 
@@ -233,7 +233,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
             //load in maxValues, sumValues
 
             __syncthreads();
-            calcQKT<T1,T2,qkv_dim>(shared_q,shared_k,shared_qkt,laneid,warpid,b_c,b_r);
+            calcQKT<qkv_dim>(shared_q,shared_k,shared_qkt,laneid,warpid,b_c,b_r);
             __syncthreads(); 
             //load in all required sram utils from dram 
             //first half of warps load in maxValues, second half load in sumValues
@@ -251,7 +251,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
                 shared_output[z]=output[head_prefix+(b_r*j+z/qkv_dim)*qkv_dim+(z%qkv_dim)];
             }
             __syncthreads();
-            reductionStep<T1,T2,qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,shared_casted_qkt,warpid,laneid,tid,b_c,b_r);
+            reductionStep<qkv_dim>(shared_qkt,shared_maxValues,shared_sumValues,shared_v,shared_output,shared_intermediateRowMaxes,shared_intermediatePV,shared_casted_qkt,warpid,laneid,tid,b_c,b_r);
             __syncthreads();
             //write output to DRAM
             if (warpid < WARPS_PER_BLOCK/2) {
@@ -295,7 +295,7 @@ __host__ void fa1_fwd_wrapper() {
     cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
     __half* h_q = new __half[num_heads * seq_len * qkv_dim];
-    std::mt19937 gen(42);
+    std::m__half9937 gen(42);
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
     __half* h_k = new __half[num_heads * seq_len * qkv_dim];
     __half* h_v = new __half[num_heads * seq_len * qkv_dim];
@@ -319,13 +319,13 @@ __host__ void fa1_fwd_wrapper() {
     dim3 threadsPerBlock(8,16);
     dim3 numBlocks((seq_len + threadsPerBlock.x - 1) / threadsPerBlock.x, num_heads);
     //calc shmem size 
-    shared_mem_requirements<__half> T1shmem_req[4]={
+    shared_mem_requirements<__half> __halfshmem_req[4]={
         {{b_r,qkv_dim}},
         {{b_c,qkv_dim}},
         {{b_c,qkv_dim}},
         {{b_r,b_c}},
     };
-    shared_mem_requirements<float> T2shmem_req[6]={
+    shared_mem_requirements<float> floatshmem_req[6]={
         {{b_r,1}},
         {{b_r,1}},
         {{b_r,qkv_dim}},
@@ -336,16 +336,16 @@ __host__ void fa1_fwd_wrapper() {
     int total_size=0;
     int sizePrefixes[10]={0};
     for (int i=0;i<4;i++) {
-        int byteCount=T1shmem_req[i].dims[0]*T1shmem_req[i].dims[1]*sizeof(__half);
+        int byteCount=__halfshmem_req[i].dims[0]*__halfshmem_req[i].dims[1]*sizeof(__half);
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
     for (int i=4;i<10;i++) {
-        int byteCount=T2shmem_req[i-4].dims[0]*T2shmem_req[i-4].dims[1]*sizeof(float);
+        int byteCount=floatshmem_req[i-4].dims[0]*floatshmem_req[i-4].dims[1]*sizeof(float);
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
-    fa1_fwd<__half, float, qkv_dim, num_heads> <<<numBlocks, threadsPerBlock, total_size>>>(
+    fa1_fwd<qkv_dim, num_heads> <<<numBlocks, threadsPerBlock, total_size>>>(
         d_q, 
         d_k, 
         d_v, 
