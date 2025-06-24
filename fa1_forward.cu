@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include <mma.h>
 #include <iostream>
 #include "fa1_forward.cuh"
@@ -93,12 +94,12 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
     }
     //cast qkt to T1
     for (int i=tid;i<b_r*b_c;i+=WARP_SIZE*WARPS_PER_BLOCK) {
-        casted_qkt[i]=(T1)shared_qkt[i];
+        casted_qkt[i]=__float2half(shared_qkt[i]);
     }
     __syncthreads();
     //handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x b_c(16x16 tiling). v_j is shared_v as a b_c x qkv_dim (16x8 tiling) 
-    int req_x_tiles=ceil(qkv_dim/TILE_X_SIZE);
-    int req_y_tiles=ceil(b_c/TILE_Y_SIZE);
+    int req_x_tiles=ceilf(qkv_dim/TILE_X_SIZE);
+    int req_y_tiles=ceilf(b_c/TILE_Y_SIZE);
     int req_tiles=req_x_tiles*req_y_tiles;
     for (int i=warpid;i<req_tiles;i+=WARPS_PER_BLOCK) {
         T2 rC[4]={0,0,0,0};
@@ -211,8 +212,8 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
     int head_id=bid;
     if (bid < num_heads) {//bid=head_id
         int head_prefix=head_id*seq_len*qkv_dim;
-        int t_c=ceilf((float) seq_len/b_c);
-        int t_r=ceilf((float) seq_len/b_r);
+        int t_c=ceilf(static_cast<float>(seq_len)/b_c);
+        int t_r=ceilf(static_cast<float>(seq_len)/b_r);
         for (int j=0;j<t_c;j++) {//load in qkv_dim*b_c elements
             int elementsToLoad=b_c*qkv_dim;
             int seq_prefix=j*b_c*qkv_dim;
