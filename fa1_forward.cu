@@ -86,7 +86,7 @@ __device__ void reductionStep(T2* shared_qkt, T2* maxValues, T2* sumValues, T1* 
         }
         //update O_i
         for (int j=laneid;j<qkv_dim;j+=WARP_SIZE) {
-            output[i*qkv_dimj]=(curRunningSum/l_inew)*exp(curMax-max(curMax,m_ijProposal))*output[i*qkv_dim+j];
+            output[i*qkv_dim+j]=(curRunningSum/l_inew)*exp(curMax-max(curMax,m_ijProposal))*output[i*qkv_dim+j];
         }
         sumValues[i]=l_inew;
         __syncthreads();
