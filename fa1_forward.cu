@@ -194,7 +194,7 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
-    extern __shared__ char shared_mem[total_size];
+    extern __shared__ char shared_mem[];
     T1* shared_q=reinterpret_cast<T1*>(shared_mem+sizePrefixes[0]);
     T1* shared_k=reintepret_cast<T1*>(shared_mem+sizePrefixes[1]);
     T1* shared_v=reintepret_cast<T1*>(shared_mem+sizePrefixes[2]);
@@ -284,6 +284,8 @@ __host__ void fa1_fwd_wrapper() {
     float* d_maxValues;
     float* d_sumValues;
     float* d_output;
+    int b_c=seq_len/(4*qkv_dim);
+    int b_r=min(b_c,qkv_dim);
 
     cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(__half));
     cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(__half));
@@ -315,7 +317,34 @@ __host__ void fa1_fwd_wrapper() {
 
     dim3 threadsPerBlock(8,16);
     dim3 numBlocks((seq_len + threadsPerBlock.x - 1) / threadsPerBlock.x, num_heads);
-    fa1_fwd<__half, float, qkv_dim, num_heads> <<<numBlocks, threadsPerBlock>>>(
+    //calc shmem size 
+    shared_mem_requirements<__half> T1shmem_req[4]={
+        {{b_r,qkv_dim}},
+        {{b_c,qkv_dim}},
+        {{b_c,qkv_dim}},
+        {{b_r,b_c}},
+    };
+    shared_mem_requirements<float> T2shmem_req[6]={
+        {{b_r,1}},
+        {{b_r,1}},
+        {{b_r,qkv_dim}},
+        {{b_r,b_c}},
+        {{b_r}},
+        {{b_r,qkv_dim}}
+    };
+    int total_size=0;
+    int sizePrefixes[10]={0};
+    for (int i=0;i<4;i++) {
+        int byteCount=T1shmem_req[i].dims[0]*T1shmem_req[i].dims[1]*sizeof(__half);
+        total_size+=byteCount;
+        sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
+    }
+    for (int i=4;i<10;i++) {
+        int byteCount=T2shmem_req[i-4].dims[0]*T2shmem_req[i-4].dims[1]*sizeof(float);
+        total_size+=byteCount;
+        sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
+    }
+    fa1_fwd<__half, float, qkv_dim, num_heads> <<<numBlocks, threadsPerBlock, total_size>>>(
         d_q, 
         d_k, 
         d_v, 
