@@ -158,24 +158,61 @@ __global__ void fa1_fwd(T1* q, T1* k, T1* v, T2* maxValues, T2* sumValues, T2* o
     int bid=blockIdx.y*gridDim.x+blockIdx.x;
     int b_c=seq_len/(4*qkv_dim);
     int b_r=min(b_c,qkv_dim);
-    extern __shared__ T1 shared_q[b_r][qkv_dim];
-    extern __shared__ T1 shared_k[b_c][qkv_dim];
-    extern __shared__ T1 shared_v[b_c][qkv_dim]; 
-    extern __shared__ T2 shared_maxValues[b_r];
-    extern __shared__ T2 shared_sumValues[b_r];
-    extern __shared__ T2 shared_output[b_r][qkv_dim];
-    extern __shared__ T2 shared_qkt[b_r][b_c];
-    extern __shared__ T2 shared_intermediateRowMaxes[b_r];
-    extern __shared__ T1 casted_qkt[b_r][b_c];
-    extern __shared__ T2 shared_intermediatePV[b_r][qkv_dim];
+    // extern __shared__ T1 shared_q[b_r][qkv_dim];
+    // extern __shared__ T1 shared_k[b_c][qkv_dim];
+    // extern __shared__ T1 shared_v[b_c][qkv_dim]; 
+    // extern __shared__ T2 shared_maxValues[b_r];
+    // extern __shared__ T2 shared_sumValues[b_r];
+    // extern __shared__ T2 shared_output[b_r][qkv_dim];
+    // extern __shared__ T2 shared_qkt[b_r][b_c];
+    // extern __shared__ T2 shared_intermediateRowMaxes[b_r];
+    // extern __shared__ T1 casted_qkt[b_r][b_c];
+    // extern __shared__ T2 shared_intermediatePV[b_r][qkv_dim];//need to combine all of this into one shmem
+    shared_mem_requirements<T1> T1shmem_req[4]={
+        {{b_r,qkv_dim}},
+        {{b_c,qkv_dim}},
+        {{b_c,qkv_dim}},
+        {{b_r,b_c}},
+    };
+    shared_mem_requirements<T2> T2shmem_req[6]={
+        {{b_r,1}},
+        {{b_r,1}},
+        {{b_r,qkv_dim}},
+        {{b_r,b_c}},
+        {{b_r}},
+        {{b_r,qkv_dim}}
+    };
+    int total_size=0;
+    int sizePrefixes[10]={0};
+    for (int i=0;i<4;i++) {
+        int byteCount=T1shmem_req[i].dims[0]*T1shmem_req[i].dims[1]*sizeof(T1);
+        total_size+=byteCount;
+        sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
+    }
+    for (int i=4;i<10;i++) {
+        int byteCount=T2shmem_req[i-4].dims[0]*T2shmem_req[i-4].dims[1]*sizeof(T2);
+        total_size+=byteCount;
+        sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
+    }
+    extern __shared__ char shared_mem[total_size];
+    T1* shared_q=reinterpret_cast<T1*>(shared_mem+sizePrefixes[0]);
+    T1* shared_k=reintepret_cast<T1*>(shared_mem+sizePrefixes[1]);
+    T1* shared_v=reintepret_cast<T1*>(shared_mem+sizePrefixes[2]);
+    T2* shared_maxValues=reinterpret_cast<T2*>(shared_mem+sizePrefixes[3]);
+    T2* shared_sumValues=reinterpret_cast<T2*>(shared_mem+sizePrefixes[4]);
+    T2* shared_output=reinterpret_cast<T2*>(shared_mem+sizePrefixes[5]);
+    T2* shared_qkt=reinterpret_cast<T2*>(shared_mem+sizePrefixes[6]);
+    T2* shared_intermediateRowMaxes=reinterpret_cast<T2*>(shared_mem+sizePrefixes[7]);
+    T1* shared_casted_qkt=reinterpret_cast<T1*>(shared_mem+sizePrefixes[8]);
+    T2* shared_intermediatePV=reinterpret_cast<T2*>(shared_mem+sizePrefixes[9]);
     int warpid=tid/WARP_SIZE;
     int laneid=tid%WARP_SIZE;
 
     int head_id=bid;
     if (bid < num_heads) {//bid=head_id
         int head_prefix=head_id*seq_len*qkv_dim;
-        int t_c=ceil(seq_len/b_c);
-        int t_r=ceil(seq_len/b_r);
+        int t_c=ceilf((float) seq_len/b_c);
+        int t_r=ceilf((float) seq_len/b_r);
         for (int j=0;j<t_c;j++) {//load in qkv_dim*b_c elements
             int elementsToLoad=b_c*qkv_dim;
             int seq_prefix=j*b_c*qkv_dim;

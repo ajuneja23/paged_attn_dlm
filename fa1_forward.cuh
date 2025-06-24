@@ -17,7 +17,10 @@
 #define WARP_SIZE 32
 
 
-
+template<typename T>
+struct shared_mem_requirements{
+    int dims[2];
+};
 
 
 template <typename T1, typename T2,int b_c, int b_r, int qkv_dim>
