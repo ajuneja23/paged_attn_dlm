@@ -37,11 +37,14 @@ __device__ void calcQKT(half* shared_q, half* shared_k, float* shared_qkt,int la
                 shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+8],
                 shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+9]//danger
             };
-            //use ptx instruction!
-                asm volatile ("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"//just handling the f32 accum f16 mat A,B pattern for now
+            unsigned const* q_ptr=reintepret_cast<unsigned const*>(q_elements);//reinterpret as a 4 element array of unsigned ints
+            unsigned const* k_ptr=reintepret_cast<unsigned const*>(k_elements);
+            
+            //use mma instruction
+            asm volatile ("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
             "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
             : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
-            : "r"(q_elements[0]), "r"(q_elements[1]), "r"(q_elements[2]), "r"(q_elements[3]), "r"(k_elements[0]), "r"(k_elements[1]),
+            : "r"(q_ptr[0]), "r"(q_ptr[1]), "r"(q_ptr[2]), "r"(q_ptr[3]), "r"(k_ptr[0]), "r"(k_ptr[1]),
                 "f"(rC[0]), "f"(rC[1]), "f"(rC[2]), "f"(rC[3]));
     }
     //store to smem
@@ -123,11 +126,13 @@ __device__ void reductionStep(float* shared_qkt, float* maxValues, float* sumVal
                 shared_v[(v_u_left[0]+2*(laneid%4)+8)*qkv_dim+v_u_left[1]+laneid/4],
                 shared_v[(v_u_left[0]+2*(laneid%4)+9)*qkv_dim+v_u_left[1]+laneid/4]
             };
-            //use ptx instruction!
+            unsigned_const* p_ptr=reinterpret_cast<unsigned_const*>(p_elements);
+            unsigned_const* v_ptr=reinterpret_cast<unsigned_const*>(v_elements);
+            //use mma instruction
             asm volatile ("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"//just handling the f32 accum f16 mat A,B pattern for now
         "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
         : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
-        : "r"(casted_qkt[0]), "r"(casted_qkt[1]), "r"(casted_qkt[2]), "r"(casted_qkt[3]), "r"(v_elements[0]), "r"(v_elements[1]),
+        : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]), "r"(v_ptr[0]), "r"(v_ptr[1]),
             "f"(rC[0]), "f"(rC[1]), "f"(rC[2]), "f"(rC[3]));
         }
         intermediatePV[(output_u_left[0]+laneid/4)*qkv_dim+output_u_left[1]+2*(laneid%4)]=rC[0];
