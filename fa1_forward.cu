@@ -58,7 +58,7 @@ __device__ void reductionStep(float* shared_qkt, float* maxValues, float* sumVal
     //calculate maxValues, P_{ij} matrix, and l_ij values. split work for each row across warps
 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
-        float m_ijProposal=-INFINITY;
+        float m_ijProposal=-std::numeric_limits<float>::infinity();
         for (int j=laneid;j<b_c;j+=WARP_SIZE) {
             float m_ijProposal=max(m_ijProposal,shared_qkt[i*b_c+j]);
         }
@@ -94,7 +94,7 @@ __device__ void reductionStep(float* shared_qkt, float* maxValues, float* sumVal
     }
     //cast qkt to half
     for (int i=tid;i<b_r*b_c;i+=WARP_SIZE*WARPS_PER_BLOCK) {
-        casted_qkt[i]=__floafloathalf(shared_qkt[i]);
+        casted_qkt[i]=(half)(shared_qkt[i]);
     }
     __syncthreads();
     //handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x b_c(16x16 tiling). v_j is shared_v as a b_c x qkv_dim (16x8 tiling) 
@@ -295,7 +295,7 @@ __host__ void fa1_fwd_wrapper() {
     cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
     half* h_q = new half[num_heads * seq_len * qkv_dim];
-    std::mhalf9937 gen(42);
+    std::mt19937 gen(42);
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
     half* h_k = new half[num_heads * seq_len * qkv_dim];
     half* h_v = new half[num_heads * seq_len * qkv_dim];
