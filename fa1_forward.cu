@@ -37,8 +37,8 @@ __device__ void calcQKT(half* shared_q, half* shared_k, float* shared_qkt,int la
                 shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+8],
                 shared_k[(k_uleft[0]+laneid/4)*qkv_dim+k_uleft[1]+2*(laneid%4)+9]//danger
             };
-            unsigned const* q_ptr=reintepret_cast<unsigned const*>(q_elements);//reinterpret as a 4 element array of unsigned ints
-            unsigned const* k_ptr=reintepret_cast<unsigned const*>(k_elements);
+            unsigned const *q_ptr=reinterpret_cast<unsigned const *>(q_elements);//reinterpret as a 4 element array of unsigned ints
+            unsigned const *k_ptr=reinterpret_cast<unsigned const *>(k_elements);
             
             //use mma instruction
             asm volatile ("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
@@ -126,8 +126,8 @@ __device__ void reductionStep(float* shared_qkt, float* maxValues, float* sumVal
                 shared_v[(v_u_left[0]+2*(laneid%4)+8)*qkv_dim+v_u_left[1]+laneid/4],
                 shared_v[(v_u_left[0]+2*(laneid%4)+9)*qkv_dim+v_u_left[1]+laneid/4]
             };
-            unsigned_const* p_ptr=reinterpret_cast<unsigned_const*>(p_elements);
-            unsigned_const* v_ptr=reinterpret_cast<unsigned_const*>(v_elements);
+            unsigned const *p_ptr=reinterpret_cast<unsigned const * >(p_elements);
+            unsigned const *v_ptr=reinterpret_cast<unsigned const *>(v_elements);
             //use mma instruction
             asm volatile ("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"//just handling the f32 accum f16 mat A,B pattern for now
         "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
