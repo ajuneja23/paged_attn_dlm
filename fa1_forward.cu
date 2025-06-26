@@ -339,6 +339,12 @@ __host__ void fa1_fwd_wrapper(int seq_len) {
         {{b_r}},
         {{b_r,qkv_dim}}
     };
+    for (int i=0;i<4;i++) {
+        std::cout<<"halfshmem_req["<<i<<"]: "<<halfshmem_req[i].dims[0]<<" "<<halfshmem_req[i].dims[1]<<std::endl;
+    }
+    for (int i=0;i<6;i++) {
+        std::cout<<"floatshmem_req["<<i<<"]: "<<floatshmem_req[i].dims[0]<<" "<<floatshmem_req[i].dims[1]<<std::endl;
+    }
     int total_size=0;
     int sizePrefixes[10]={0};
     for (int i=0;i<4;i++) {
@@ -351,6 +357,12 @@ __host__ void fa1_fwd_wrapper(int seq_len) {
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
+    std::cout<<"total shmem size: "<<total_size<<std::endl;
+    std::cout<<"size prefixes: ";
+    for (int i=0;i<10;i++) {
+        std::cout<<sizePrefixes[i]<<" ";
+    }
+    std::cout<<std::endl;
     std::cout<<"starting kernel!"<<std::endl;
     fa1_fwd<qkv_dim, num_heads> <<<numBlocks, threadsPerBlock, total_size>>>(
         d_q, 
