@@ -61,9 +61,9 @@ __device__ void reductionStep(float* shared_qkt, float* maxValues, float* sumVal
     //calculate maxValues, P_{ij} matrix, and l_ij values. split work for each row across warps
 
     for (int i=warpid;i<b_r;i+=WARPS_PER_BLOCK) {
-        float m_ijProposal=-std::numeric_limits<float>::infinity();
+        float m_ijProposal=-INFINITY;
         for (int j=laneid;j<b_c;j+=WARP_SIZE) {
-            float m_ijProposal=max(m_ijProposal,shared_qkt[i*b_c+j]);
+            m_ijProposal=max(m_ijProposal,shared_qkt[i*b_c+j]);
         }
         for (int offset=WARP_SIZE/2;offset>0;offset>>=1) {
             m_ijProposal=max(m_ijProposal,__shfl_down_sync(0xFFFFFFFF,m_ijProposal,offset));
