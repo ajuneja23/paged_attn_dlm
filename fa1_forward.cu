@@ -281,7 +281,7 @@ __global__ void fa1_fwd(half* q, half* k, half* v, float* maxValues, float* sumV
 
 __host__ void fa1_fwd_wrapper(int seq_len) {
 
-    constexpr int seq_len = 1024;
+
     constexpr int qkv_dim = 1024;
     constexpr int num_heads = 16;
     half* d_q;
