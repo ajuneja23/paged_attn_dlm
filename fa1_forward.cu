@@ -292,13 +292,13 @@ __host__ void fa1_fwd_wrapper() {
     float* d_output;
     int b_c=seq_len/(4*qkv_dim);
     int b_r=min(b_c,qkv_dim);
-
     cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(half));
     cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(half));
     cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(half));
     cudaMalloc(&d_maxValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
     cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
+    std::cout<<"allocated memory on device!"<<std::endl;
     half* h_q = new half[num_heads * seq_len * qkv_dim];
     std::mt19937 gen(42);
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
@@ -312,9 +312,10 @@ __host__ void fa1_fwd_wrapper() {
     float* h_maxValues = new float[num_heads * seq_len];
     float* h_sumValues = new float[num_heads * seq_len];
     for (int i = 0; i < num_heads * seq_len; ++i) {
-        h_maxValues[i] = -std::numeric_limits<float>::infinity();
+        h_maxValues[i] = -INFINITY;
         h_sumValues[i] = 0.0f;
     }
+    std::cout<<"filled host memory!"<<std::endl;
     cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(half), cudaMemcpyHostToDevice);
     cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(half), cudaMemcpyHostToDevice);
     cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(half), cudaMemcpyHostToDevice);
@@ -350,6 +351,7 @@ __host__ void fa1_fwd_wrapper() {
         total_size+=byteCount;
         sizePrefixes[i+1]=sizePrefixes[i]+byteCount;
     }
+    std::cout<<"starting kernel!"<<std::endl;
     fa1_fwd<qkv_dim, num_heads> <<<numBlocks, threadsPerBlock, total_size>>>(
         d_q, 
         d_k, 
@@ -363,7 +365,7 @@ __host__ void fa1_fwd_wrapper() {
     // Copy the result back to host
     float* h_output = new float[num_heads * seq_len * qkv_dim];
     cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float), cudaMemcpyDeviceToHost);
-
+    std::cout<<"copied result to host!"<<std::endl;
     // Print the result
     for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
         std::cout << "output[" << i << "]: " << h_output[i] << std::endl;
@@ -380,4 +382,5 @@ __host__ void fa1_fwd_wrapper() {
     cudaFree(d_maxValues);
     cudaFree(d_sumValues);
     cudaFree(d_output);
+    std::cout<<"freed memory on device!"<<std::endl;
 }
