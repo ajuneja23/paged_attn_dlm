@@ -8,6 +8,6 @@ This project aims to provide an implementation of LLaDA, a modern diffusion lang
 
 - [x] Basic PagedAttention Manager
 - [x] FA1 Implementation
-- [] FA2,FA3 support
-- [] Adjust FA Implementation for Paged KV Cache
-- [] Adjust PagedAttention Manager to maintain "unmasked K,V cache" and recompute masked token Q,K,Vs every pass while conducting global attention on all of these K,Vs in a fused kernel
+- [ ] FA2,FA3 support
+- [ ] Adjust FA Implementation for Paged KV Cache
+- [ ] Adjust PagedAttention Manager to maintain "unmasked K,V cache" and recompute masked token Q,K,Vs every pass while conducting global attention on all of these K,Vs in a fused kernel
