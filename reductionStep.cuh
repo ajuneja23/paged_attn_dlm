@@ -4,11 +4,14 @@
 
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+#include <device_functions.h>
 #include <iostream>
+#include <math_functions.h>
 #include <mma.h>
 #include <random>
 #define TILE_X_SIZE 8
-#define TILE_Y_SIZE 16               // for non square tiles
+#define TILE_Y_SIZE 16               // for non fsquare tiles
 #define SQUARE_TILE_SIZE TILE_X_SIZE // for 16x16 tiles
 #define SHARED_Q_K_DIM TILE_Y_SIZE
 
@@ -34,8 +37,8 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       m_ijProposal = max(m_ijProposal, shared_qkt[i * b_c + j]);
     }
     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {
-      m_ijProposal =
-          max(m_ijProposal, __shfl_down_sync(0xFFFFFFFF, m_ijProposal, offset));
+      m_ijProposal = fmaxf(m_ijProposal,
+                           __shfl_down_sync(0xFFFFFFFF, m_ijProposal, offset));
     }
     if (laneid == 0) {
       maxValues[i] = max(maxValues[i], m_ijProposal);
@@ -47,7 +50,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       if (j >= kElementsTracked) {
         shared_qkt[i * b_c + j] = -INFINITY;
       }
-      shared_qkt[i * b_c + j] = exp(shared_qkt[i * b_c + j]);
+      shared_qkt[i * b_c + j] = expf(shared_qkt[i * b_c + j]);
       runningSum += shared_qkt[i * b_c + j];
     }
     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {
@@ -58,9 +61,9 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     float curMax = maxValues[i];
     maxValues[i] = max(curMax, m_ijProposal);
     float curRunningSum = sumValues[i]; // m_i
-    float l_inew =
-        exp(curMax - max(curMax, m_ijProposal)) * curRunningSum +
-        exp(m_ijProposal - max(curMax, m_ijProposal)) * runningSum; // l_i^{new}
+    float l_inew = expf(curMax - max(curMax, m_ijProposal)) * curRunningSum +
+                   expf(m_ijProposal - max(curMax, m_ijProposal)) *
+                       runningSum; // l_i^{new}
     if (laneid == 0) {
       intermediateRowMaxes[i] = m_ijProposal;
     }
