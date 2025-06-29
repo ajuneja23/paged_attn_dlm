@@ -17,7 +17,7 @@ include_directories(${CUDAToolkit_ROOT}/include)
 
 link_directories(${CUDAToolkit_ROOT}/lib64)
 
-add_executable(fa1_forward fa1_forward.cpp fa1_forward.cu reductionStep.cu qkt_computation.cu)
+add_executable(fa1_forward fa1_forward.cpp fa1_forward.cu)
 target_link_libraries(fa1_forward CUDA::cudart)
 
 
