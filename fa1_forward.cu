@@ -154,8 +154,13 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   }
 }
 
-__host__ void fa1_fwd_wrapper(int seq_len) {
-
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <sequence_length>" << std::endl;
+    return 1;
+  }
+  int seq_len = std::stoi(argv[1]);
+  std::cout << "sequence length: " << seq_len << std::endl;
   constexpr int qkv_dim = 32;
   constexpr int num_heads = 16;
   half *d_q;
