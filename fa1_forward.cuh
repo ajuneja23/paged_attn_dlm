@@ -20,17 +20,6 @@ template <typename T> struct shared_mem_requirements {
   int dims[2];
 };
 
-template <int qkv_dim>
-__device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
-                        int seq_len, int laneid, int warpid, int b_c, int b_r);
-
-template <int qkv_dim>
-__device__ void
-reductionStep(float *shared_qkt, float *maxValues, float *sumValues,
-              half *shared_v, float *output, float *intermediateRowMaxes,
-              float *intermediatePV, half *casted_qkt, int warpid, int laneid,
-              int tid, int b_c, int b_r);
-
 template <int qkv_dim, int num_heads>
 __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
                         float *sumValues, float *output, int seq_len);

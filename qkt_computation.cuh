@@ -18,5 +18,5 @@
 
 template <int qkv_dim>
 __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
-                        int seq_len, int laneid, int warpid, int b_c, int b_r);
+                        int laneid, int warpid, int b_c, int b_r);
 #endif
