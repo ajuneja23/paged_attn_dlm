@@ -1,5 +1,4 @@
-#ifndef FA1_FWD_CUH
-#define FA1_FWD_CUH
+#pragma once
 
 #include <cmath>
 #include <cuda_fp16.h>
@@ -27,5 +26,3 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
                         float *sumValues, float *output, int seq_len);
 
 __host__ void fa1_fwd_wrapper(int seq_len);
-
-#endif

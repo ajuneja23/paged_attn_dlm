@@ -1,12 +1,11 @@
+#pragma once
+
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 
 #include <mma.h>
 #include <random>
-
-#ifndef QKT_COMPUTATION_CUH
-#define QKT_COMPUTATION_CUH
 
 #define TILE_X_SIZE 8
 #define TILE_Y_SIZE 16               // for non square tiles

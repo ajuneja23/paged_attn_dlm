@@ -1,6 +1,4 @@
-
-#ifndef REDUCTION_STEP_CUH
-#define REDUCTION_STEP_CUH
+#pragma once
 
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -31,14 +29,14 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     float m_ijProposal = -INFINITY;
     for (int j = laneid; j < kElementsTracked;
          j += WARP_SIZE) { // col in qk^t matrix
-      m_ijProposal = max(m_ijProposal, shared_qkt[i * b_c + j]);
+      m_ijProposal = fmaxf(m_ijProposal, shared_qkt[i * b_c + j]);
     }
     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {
       m_ijProposal = fmaxf(m_ijProposal,
                            __shfl_down_sync(0xFFFFFFFF, m_ijProposal, offset));
     }
     if (laneid == 0) {
-      maxValues[i] = max(maxValues[i], m_ijProposal);
+      maxValues[i] = fmaxf(maxValues[i], m_ijProposal);
     }
     m_ijProposal = __shfl_sync(0xFFFFFFFF, m_ijProposal, 0);
     float runningSum = 0;
@@ -56,10 +54,10 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     }
     runningSum = __shfl_sync(0xFFFFFFFF, runningSum, 0);
     float curMax = maxValues[i];
-    maxValues[i] = max(curMax, m_ijProposal);
+    maxValues[i] = fmaxf(curMax, m_ijProposal);
     float curRunningSum = sumValues[i]; // m_i
-    float l_inew = expf(curMax - max(curMax, m_ijProposal)) * curRunningSum +
-                   expf(m_ijProposal - max(curMax, m_ijProposal)) *
+    float l_inew = expf(curMax - fmaxf(curMax, m_ijProposal)) * curRunningSum +
+                   expf(m_ijProposal - fmaxf(curMax, m_ijProposal)) *
                        runningSum; // l_i^{new}
     if (laneid == 0) {
       intermediateRowMaxes[i] = m_ijProposal;
@@ -67,7 +65,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     // update O_i
     for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
       output[i * qkv_dim + j] = (curRunningSum / l_inew) *
-                                exp(curMax - max(curMax, m_ijProposal)) *
+                                expf(curMax - fmaxf(curMax, m_ijProposal)) *
                                 output[i * qkv_dim + j];
     }
     sumValues[i] = l_inew;
@@ -144,11 +142,9 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
   // final O_i update
   for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
     float coefficient =
-        exp(intermediateRowMaxes[i] - maxValues[i]) / sumValues[i];
+        expf(intermediateRowMaxes[i] - maxValues[i]) / sumValues[i];
     for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
       output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
     }
   }
 }
-
-#endif
