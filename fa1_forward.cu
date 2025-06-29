@@ -1,4 +1,5 @@
 #include "fa1_forward.cuh"
+#include <iostream>
 // parallelize on heads first
 template <int qkv_dim, int num_heads>
 __global__ void
