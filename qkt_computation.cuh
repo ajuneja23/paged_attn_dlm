@@ -88,5 +88,3 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                output_tile_uleft[1] + 2 * (laneid % 4) + 1] = rC[3];
   }
 }
-
-#endif
