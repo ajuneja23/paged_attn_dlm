@@ -2,9 +2,11 @@
 #define FA1_FWD_CUH
 
 #include <cmath>
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
-#include <iostream>
+#include <cuda_runtime_api.h>
 #include <mma.h>
+#include <random>
 #define TILE_X_SIZE 8
 #define TILE_Y_SIZE 16               // for non square tiles
 #define SQUARE_TILE_SIZE TILE_X_SIZE // for 16x16 tiles
