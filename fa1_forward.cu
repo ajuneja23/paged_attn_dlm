@@ -230,11 +230,11 @@ int main(int argc, char *argv[]) {
   cudaMalloc(&d_sizePrefixes, sizeof(int) * 10);
   cudaMemcpy(d_sizePrefixes, sizePrefixes, sizeof(int) * 10,
              cudaMemcpyHostToDevice);
-  int device;
-  cudaGetDevice(&device);
-  int shmem_per_sm;
-  cudaDeviceGetAttribute(&shmem_per_sm, cudaDevAttrSharedMemPerMultiprocessor);
-  std::cout<<"allowable shmem per SM:"<<shmem_per_sm<<std::endl;
+  // int device;
+  // cudaGetDevice(&device);
+  // int shmem_per_sm;
+  // cudaDeviceGetAttribute(&shmem_per_sm, cudaDevAttrSharedMemPerMultiprocessor, 0);
+  // std::cout<<"allowable shmem per SM:"<<shmem_per_sm<<std::endl;
   std::cout << "total shmem size: " << total_size << std::endl;
   std::cout << "size prefixes: ";
   for (int i = 0; i < 10; i++) {
