@@ -265,9 +265,9 @@ int main(int argc, char *argv[]) {
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
   // Print the result
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+  /*for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
     std::cout << "output[" << i << "]: " << h_output[i] << std::endl;
-  }
+  }*/
   delete[] h_q;
   delete[] h_k;
   delete[] h_v;
