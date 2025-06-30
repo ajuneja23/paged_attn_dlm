@@ -65,11 +65,14 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
           shared_k[(k_uleft[0] + laneid / 4) * qkv_dim + k_uleft[1] +
                    2 * (laneid % 4) + 9] // danger
       };
-      printf("QKT runs: q_elements: %f %f %f %f %f %f %f %f\n", q_elements[0],
-             q_elements[1], q_elements[2], q_elements[3], q_elements[4],
-             q_elements[5], q_elements[6], q_elements[7]);
-      printf("QKT runs: k_elements: %f %f %f %f\n", k_elements[0],
-             k_elements[1], k_elements[2], k_elements[3]);
+      printf("QKT runs: q_elements: %f %f %f %f %f %f %f %f\n",
+             __half2float(q_elements[0]), __half2float(q_elements[1]),
+             __half2float(q_elements[2]), __half2float(q_elements[3]),
+             __half2float(q_elements[4]), __half2float(q_elements[5]),
+             __half2float(q_elements[6]), __half2float(q_elements[7]));
+      printf("QKT runs: k_elements: %f %f %f %f\n", __half2float(k_elements[0]),
+             __half2float(k_elements[1]), __half2float(k_elements[2]),
+             __half2float(k_elements[3]));
       unsigned const *q_ptr = reinterpret_cast<unsigned const *>(
           q_elements); // reinterpret as a 4 element array of unsigned ints
       unsigned const *k_ptr = reinterpret_cast<unsigned const *>(k_elements);
