@@ -4,7 +4,7 @@
 template <int qkv_dim, int num_heads>
 __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
                         float *sumValues, float *output, int seq_len, int b_c,
-                        int b_r) { // q layout is (qkv_dim,seq_len,num_heads):
+                        int b_r, int* sizePrefixes) { // q layout is (qkv_dim,seq_len,num_heads):
                                    // (1, qkv_dim,qkv_dim*seq_len). same for k,v
   int tid = threadIdx.y * blockDim.x + threadIdx.x;
   int bid = blockIdx.y * gridDim.x + blockIdx.x;
@@ -20,29 +20,6 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
   // extern __shared__ half casted_qkt[b_r][b_c];
   // extern __shared__ float shared_intermediatePV[b_r][qkv_dim];//need to
   // combine all of this into one shmem
-  shared_mem_requirements<half> halfshmem_req[4] = {
-      {{b_r, qkv_dim}},
-      {{b_c, qkv_dim}},
-      {{b_c, qkv_dim}},
-      {{b_r, b_c}},
-  };
-  shared_mem_requirements<float> floatshmem_req[6] = {
-      {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
-      {{b_r, b_c}}, {{b_r, 1}},    {{b_r, qkv_dim}}};
-  int total_size = 0;
-  int sizePrefixes[10] = {0};
-  for (int i = 0; i < 4; i++) {
-    int byteCount =
-        halfshmem_req[i].dims[0] * halfshmem_req[i].dims[1] * sizeof(half);
-    total_size += byteCount;
-    sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
-  }
-  for (int i = 4; i < 10; i++) {
-    int byteCount = floatshmem_req[i - 4].dims[0] *
-                    floatshmem_req[i - 4].dims[1] * sizeof(float);
-    total_size += byteCount;
-    sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
-  }
   extern __shared__ char shared_mem[];
   half *shared_q = (half *)(shared_mem + sizePrefixes[0]);
   half *shared_k = (half *)(shared_mem + sizePrefixes[1]);
@@ -175,8 +152,8 @@ int main(int argc, char *argv[]) {
   float *d_maxValues;
   float *d_sumValues;
   float *d_output;
-  int b_c = 64;
-  int b_r = 64;
+  int b_c = 32;
+  int b_r = 32;
   cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(half));
   cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(half));
   cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(half));
@@ -249,6 +226,14 @@ int main(int argc, char *argv[]) {
     total_size += byteCount;
     sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
   }
+  int *d_sizePrefixes;
+  cudaMalloc(&d_sizePrefixes, sizeof(int) * 10);
+  cudaMemcpy(d_sizePrefixes, sizePrefixes, sizeof(int) * 10,
+             cudaMemcpyHostToDevice);
+  int device;
+  cudaGetDevice(&device);
+  int shmem_per_sm;
+  cudaDeviceGetAttribute(&shmem_per_sm, cudaDevAttrsharedMemPerMultiprocessor)
   std::cout << "total shmem size: " << total_size << std::endl;
   std::cout << "size prefixes: ";
   for (int i = 0; i < 10; i++) {
@@ -257,7 +242,7 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   std::cout << "starting kernel!" << std::endl;
   fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
-      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r);
+      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r, d_sizePrefixes);
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
     std::cerr << "Kernel launch failed: " << cudaGetErrorString(err)

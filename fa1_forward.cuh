@@ -24,6 +24,6 @@ template <typename T> struct shared_mem_requirements {
 template <int qkv_dim, int num_heads>
 __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
                         float *sumValues, float *output, int seq_len, int b_c,
-                        int b_r);
+                        int b_r, int* sizePrefixes);
 
 __host__ void fa1_fwd_wrapper(int seq_len);
