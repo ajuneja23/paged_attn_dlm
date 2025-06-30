@@ -258,6 +258,12 @@ int main(int argc, char *argv[]) {
   std::cout << "starting kernel!" << std::endl;
   fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
       d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r);
+  cudaError_t err = cudaGetLastError();
+  if (err != cudaSuccess) {
+    std::cerr << "Kernel launch failed: " << cudaGetErrorString(err)
+              << std::endl;
+    return 1;
+  }
 
   // Copy the result back to host
   float *h_output = new float[num_heads * seq_len * qkv_dim];
