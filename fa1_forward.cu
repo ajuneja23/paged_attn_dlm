@@ -92,22 +92,20 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
         // first half of warps load in maxValues, second half load in
         // sumValues
         if (warpid < WARPS_PER_BLOCK / 2) {
-          for (int z = tid; z < b_r; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
+          for (int z = tid; z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_maxValues[z] = maxValues[head_id * seq_len + i * b_r + z];
-            printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]);
+            printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]); 
           }
         } else {
-          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < b_r;
+          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < qElementsTracked;
                z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_sumValues[z] = sumValues[head_id * seq_len + i * b_r + z];
           }
         }
         // collaborate on O block loading
-        for (int z = tid; z < b_r * qkv_dim;
+        for (int z = tid; z < qElementsTracked * qkv_dim;
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
-          shared_output[z] =
-              output[head_prefix + (b_r * j + z / qkv_dim) * qkv_dim +
-                     (z % qkv_dim)];
+          shared_output[z] = output[head_prefix + i * b_r * qkv_dim + z];
         }
         __syncthreads();
         reductionStep<qkv_dim>(
@@ -118,17 +116,17 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
         __syncthreads();
         // write output to DRAM
         if (warpid < WARPS_PER_BLOCK / 2) {
-          for (int z = tid; z < b_r; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
-            maxValues[i * b_r + z] = shared_maxValues[z];
+          for (int z = tid; z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
+            maxValues[head_id * seq_len + i * b_r + z] = shared_maxValues[z];
           }
         } else {
-          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < b_r;
+          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < qElementsTracked;
                z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
-            sumValues[i * b_r + z] = shared_sumValues[z];
+            sumValues[head_id * seq_len + i * b_r + z] = shared_sumValues[z];
           }
         }
         // collaborate on O block loading
-        for (int z = tid; z < b_r * qkv_dim;
+        for (int z = tid; z < qElementsTracked * qkv_dim;
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
           output[head_prefix + b_r * i * qkv_dim + z] = shared_output[z];
         }
