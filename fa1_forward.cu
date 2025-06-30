@@ -65,11 +65,14 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   if (bid < num_heads) { // bid=head_id
     int head_prefix = head_id * seq_len * qkv_dim;
     int t_c = ceilf(static_cast<float>(seq_len) / b_c);
+    printf("t_c: %d\n", t_c);
     int t_r = ceilf(static_cast<float>(seq_len) / b_r);
+    printf("t_r: %d\n", t_r);
     for (int j = 0; j < t_c; j++) { // load in qkv_dim*b_c elements
       int elementsToLoad = b_c * qkv_dim;
       int trueElementsToLoad = -1;
       int kElementsTracked = b_c;
+      printf("kElementsTracked: %d\n", kElementsTracked);
       if (j == t_c - 1) {
         kElementsTracked = seq_len - j * b_c;
         trueElementsToLoad = seq_len * qkv_dim - j * b_c * qkv_dim;
@@ -166,7 +169,7 @@ int main(int argc, char *argv[]) {
   }
   int seq_len = std::stoi(argv[1]);
   std::cout << "sequence length: " << seq_len << std::endl;
-  constexpr int qkv_dim = 32;
+  constexpr int qkv_dim = 128;
   constexpr int num_heads = 16;
   half *d_q;
   half *d_k;
@@ -174,8 +177,8 @@ int main(int argc, char *argv[]) {
   float *d_maxValues;
   float *d_sumValues;
   float *d_output;
-  int b_c = 32;
-  int b_r = 32;
+  int b_c = 64;
+  int b_r = 64;
   cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(half));
   cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(half));
   cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(half));
