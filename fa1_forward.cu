@@ -2,15 +2,13 @@
 #include <iostream>
 // parallelize on heads first
 template <int qkv_dim, int num_heads>
-__global__ void
-fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
-        float *output,
-        int seq_len) { // q layout is (qkv_dim,seq_len,num_heads): (1,
-                       // qkv_dim,qkv_dim*seq_len). same for k,v
+__global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
+                        float *sumValues, float *output, int seq_len, int b_c,
+                        int b_r) { // q layout is (qkv_dim,seq_len,num_heads):
+                                   // (1, qkv_dim,qkv_dim*seq_len). same for k,v
   int tid = threadIdx.y * blockDim.x + threadIdx.x;
   int bid = blockIdx.y * gridDim.x + blockIdx.x;
-  int b_c = seq_len / (4 * qkv_dim);
-  int b_r = min(b_c, qkv_dim);
+
   // extern __shared__ half shared_q[b_r][qkv_dim];
   // extern __shared__ half shared_k[b_c][qkv_dim];
   // extern __shared__ half shared_v[b_c][qkv_dim];
@@ -259,7 +257,7 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   std::cout << "starting kernel!" << std::endl;
   fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
-      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len);
+      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r);
 
   // Copy the result back to host
   float *h_output = new float[num_heads * seq_len * qkv_dim];
