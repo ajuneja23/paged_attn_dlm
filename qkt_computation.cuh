@@ -21,10 +21,10 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                         int laneid, int warpid, int b_c, int b_r) {
   int req_x_tiles = ceilf(b_c / TILE_Y_SIZE);
   int req_y_tiles = ceilf(b_r / TILE_X_SIZE);
+  printf("req_x_tiles: %d, req_y_tiles: %d\n", req_x_tiles, req_y_tiles);
   int req_tiles =
       req_x_tiles * req_y_tiles; // # of tiles in full qk^t block output
   for (int i = warpid; i < req_tiles; i += WARPS_PER_BLOCK) {
-
     int x_idx = (i) % req_x_tiles;
     int y_idx = (i) / req_x_tiles;
     int output_tile_uleft[2] = {y_idx * TILE_Y_SIZE,
@@ -65,6 +65,11 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
           shared_k[(k_uleft[0] + laneid / 4) * qkv_dim + k_uleft[1] +
                    2 * (laneid % 4) + 9] // danger
       };
+      printf("QKT runs: q_elements: %f %f %f %f %f %f %f %f\n", q_elements[0],
+             q_elements[1], q_elements[2], q_elements[3], q_elements[4],
+             q_elements[5], q_elements[6], q_elements[7]);
+      printf("QKT runs: k_elements: %f %f %f %f\n", k_elements[0],
+             k_elements[1], k_elements[2], k_elements[3]);
       unsigned const *q_ptr = reinterpret_cast<unsigned const *>(
           q_elements); // reinterpret as a 4 element array of unsigned ints
       unsigned const *k_ptr = reinterpret_cast<unsigned const *>(k_elements);
@@ -76,6 +81,8 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                    : "r"(q_ptr[0]), "r"(q_ptr[1]), "r"(q_ptr[2]), "r"(q_ptr[3]),
                      "r"(k_ptr[0]), "r"(k_ptr[1]), "f"(rC[0]), "f"(rC[1]),
                      "f"(rC[2]), "f"(rC[3]));
+      printf("QKT runs output of mma runs: rC: %f %f %f %f\n", rC[0], rC[1],
+             rC[2], rC[3]);
     }
     // store to smem
     shared_qkt[(output_tile_uleft[0] + laneid / 4) * b_c +

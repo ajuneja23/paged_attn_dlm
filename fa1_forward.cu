@@ -58,6 +58,9 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   float *shared_intermediatePV = (float *)(shared_mem + sizePrefixes[9]);
   int warpid = tid / WARP_SIZE;
   int laneid = tid % WARP_SIZE;
+  if (tid == 0) {
+    printf("warp_id: %d, laneid: %d\n", warpid, laneid);
+  }
   int head_id = bid;
   if (bid < num_heads) { // bid=head_id
     int head_prefix = head_id * seq_len * qkv_dim;
@@ -113,6 +116,7 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         if (warpid < WARPS_PER_BLOCK / 2) {
           for (int z = tid; z < b_r; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_maxValues[z] = maxValues[head_id * seq_len + i * b_r + z];
+            printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]);
           }
         } else {
           for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < b_r;
@@ -188,6 +192,8 @@ int main(int argc, char *argv[]) {
     h_q[i] = static_cast<half>(dis(gen));
     h_k[i] = static_cast<half>(dis(gen));
     h_v[i] = static_cast<half>(dis(gen));
+    std::cout << "Elements at index " << i << ": " << h_q[i] << " " << h_k[i]
+              << " " << h_v[i] << std::endl;
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
