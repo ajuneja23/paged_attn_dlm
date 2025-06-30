@@ -28,7 +28,7 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
   };
   shared_mem_requirements<float> floatshmem_req[6] = {
       {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
-      {{b_r, b_c}}, {{b_r}},    {{b_r, qkv_dim}}};
+      {{b_r, b_c}}, {{b_r, 1}},    {{b_r, qkv_dim}}};
   int total_size = 0;
   int sizePrefixes[10] = {0};
   for (int i = 0; i < 4; i++) {
