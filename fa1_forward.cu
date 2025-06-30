@@ -288,4 +288,3 @@ int main(int argc, char *argv[]) {
   cudaFree(d_output);
   std::cout << "freed memory on device!" << std::endl;
 }
-}
