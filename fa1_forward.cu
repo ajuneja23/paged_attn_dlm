@@ -192,8 +192,9 @@ int main(int argc, char *argv[]) {
     h_q[i] = static_cast<half>(dis(gen));
     h_k[i] = static_cast<half>(dis(gen));
     h_v[i] = static_cast<half>(dis(gen));
-    std::cout << "Elements at index " << i << ": " << h_q[i] << " " << h_k[i]
-              << " " << h_v[i] << std::endl;
+    std::cout << "Elements at index " << i << ": " << __half2float(h_q[i])
+              << " " << __half2float(h_k[i]) << " " << __half2float(h_v[i])
+              << std::endl;
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
