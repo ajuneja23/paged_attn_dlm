@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
   }
   int seq_len = std::stoi(argv[1]);
   std::cout << "sequence length: " << seq_len << std::endl;
-  constexpr int qkv_dim = 128;
+  constexpr int qkv_dim = 64;
   constexpr int num_heads = 16;
   half *d_q;
   half *d_k;
@@ -233,7 +233,8 @@ int main(int argc, char *argv[]) {
   int device;
   cudaGetDevice(&device);
   int shmem_per_sm;
-  cudaDeviceGetAttribute(&shmem_per_sm, cudaDevAttrsharedMemPerMultiprocessor)
+  cudaDeviceGetAttribute(&shmem_per_sm, cudaDevAttrSharedMemPerMultiprocessor);
+  std::cout<<"allowable shmem per SM:"<<shmem_per_sm<<std::endl;
   std::cout << "total shmem size: " << total_size << std::endl;
   std::cout << "size prefixes: ";
   for (int i = 0; i < 10; i++) {
