@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
   };
   shared_mem_requirements<float> floatshmem_req[6] = {
       {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
-      {{b_r, b_c}}, {{b_r}},    {{b_r, qkv_dim}}};
+      {{b_r, b_c}}, {{b_r, 1}},    {{b_r, qkv_dim}}};
   for (int i = 0; i < 4; i++) {
     std::cout << "halfshmem_req[" << i << "]: " << halfshmem_req[i].dims[0]
               << " " << halfshmem_req[i].dims[1] << std::endl;
