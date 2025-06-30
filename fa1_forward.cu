@@ -193,98 +193,100 @@ int main(int argc, char *argv[]) {
     h_q[i] = static_cast<half>(dis(gen));
     h_k[i] = static_cast<half>(dis(gen));
     h_v[i] = static_cast<half>(dis(gen));
-    std::cout << "Elements at index " << i << ": " << __half2float(h_q[i])
-              << " " << __half2float(h_k[i]) << " " << __half2float(h_v[i])
-              << std::endl;
-  }
-  float *h_maxValues = new float[num_heads * seq_len];
-  float *h_sumValues = new float[num_heads * seq_len];
-  for (int i = 0; i < num_heads * seq_len; ++i) {
-    h_maxValues[i] = -INFINITY;
-    h_sumValues[i] = 0.0f;
-  }
-  std::cout << "filled host memory!" << std::endl;
-  cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(half),
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(half),
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(half),
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(d_maxValues, h_maxValues, num_heads * seq_len * sizeof(float),
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(d_sumValues, h_sumValues, num_heads * seq_len * sizeof(float),
-             cudaMemcpyHostToDevice);
+    //   std::cout << "Elements at index " << i << ": " << __half2float(h_q[i])
+    //             << " " << __half2float(h_k[i]) << " " << __half2float(h_v[i])
+    //             << std::endl;
+    // }
+    float *h_maxValues = new float[num_heads * seq_len];
+    float *h_sumValues = new float[num_heads * seq_len];
+    for (int i = 0; i < num_heads * seq_len; ++i) {
+      h_maxValues[i] = -INFINITY;
+      h_sumValues[i] = 0.0f;
+    }
+    std::cout << "filled host memory!" << std::endl;
+    cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(half),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(half),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(half),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_maxValues, h_maxValues, num_heads * seq_len * sizeof(float),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sumValues, h_sumValues, num_heads * seq_len * sizeof(float),
+               cudaMemcpyHostToDevice);
 
-  dim3 threadsPerBlock(8, 16);
-  dim3 numBlocks(4, 4);
-  // calc shmem size
-  shared_mem_requirements<half> halfshmem_req[4] = {
-      {{b_r, qkv_dim}},
-      {{b_c, qkv_dim}},
-      {{b_c, qkv_dim}},
-      {{b_r, b_c}},
-  };
-  shared_mem_requirements<float> floatshmem_req[6] = {
-      {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
-      {{b_r, b_c}}, {{b_r}},    {{b_r, qkv_dim}}};
-  for (int i = 0; i < 4; i++) {
-    std::cout << "halfshmem_req[" << i << "]: " << halfshmem_req[i].dims[0]
-              << " " << halfshmem_req[i].dims[1] << std::endl;
-  }
-  for (int i = 0; i < 6; i++) {
-    std::cout << "floatshmem_req[" << i << "]: " << floatshmem_req[i].dims[0]
-              << " " << floatshmem_req[i].dims[1] << std::endl;
-  }
-  int total_size = 0;
-  int sizePrefixes[10] = {0};
-  for (int i = 0; i < 4; i++) {
-    int byteCount =
-        halfshmem_req[i].dims[0] * halfshmem_req[i].dims[1] * sizeof(half);
-    total_size += byteCount;
-    sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
-  }
-  for (int i = 4; i < 10; i++) {
-    int byteCount = floatshmem_req[i - 4].dims[0] *
-                    floatshmem_req[i - 4].dims[1] * sizeof(float);
-    total_size += byteCount;
-    sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
-  }
-  std::cout << "total shmem size: " << total_size << std::endl;
-  std::cout << "size prefixes: ";
-  for (int i = 0; i < 10; i++) {
-    std::cout << sizePrefixes[i] << " ";
-  }
-  std::cout << std::endl;
-  std::cout << "starting kernel!" << std::endl;
-  fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
-      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    std::cerr << "Kernel launch failed: " << cudaGetErrorString(err)
-              << std::endl;
-    return 1;
-  }
+    dim3 threadsPerBlock(8, 16);
+    dim3 numBlocks(4, 4);
+    // calc shmem size
+    shared_mem_requirements<half> halfshmem_req[4] = {
+        {{b_r, qkv_dim}},
+        {{b_c, qkv_dim}},
+        {{b_c, qkv_dim}},
+        {{b_r, b_c}},
+    };
+    shared_mem_requirements<float> floatshmem_req[6] = {
+        {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
+        {{b_r, b_c}}, {{b_r}},    {{b_r, qkv_dim}}};
+    for (int i = 0; i < 4; i++) {
+      std::cout << "halfshmem_req[" << i << "]: " << halfshmem_req[i].dims[0]
+                << " " << halfshmem_req[i].dims[1] << std::endl;
+    }
+    for (int i = 0; i < 6; i++) {
+      std::cout << "floatshmem_req[" << i << "]: " << floatshmem_req[i].dims[0]
+                << " " << floatshmem_req[i].dims[1] << std::endl;
+    }
+    int total_size = 0;
+    int sizePrefixes[10] = {0};
+    for (int i = 0; i < 4; i++) {
+      int byteCount =
+          halfshmem_req[i].dims[0] * halfshmem_req[i].dims[1] * sizeof(half);
+      total_size += byteCount;
+      sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
+    }
+    for (int i = 4; i < 10; i++) {
+      int byteCount = floatshmem_req[i - 4].dims[0] *
+                      floatshmem_req[i - 4].dims[1] * sizeof(float);
+      total_size += byteCount;
+      sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
+    }
+    std::cout << "total shmem size: " << total_size << std::endl;
+    std::cout << "size prefixes: ";
+    for (int i = 0; i < 10; i++) {
+      std::cout << sizePrefixes[i] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "starting kernel!" << std::endl;
+    fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
+        d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+      std::cerr << "Kernel launch failed: " << cudaGetErrorString(err)
+                << std::endl;
+      return 1;
+    }
 
-  // Copy the result back to host
-  float *h_output = new float[num_heads * seq_len * qkv_dim];
-  cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float),
-             cudaMemcpyDeviceToHost);
-  std::cout << "copied result to host!" << std::endl;
-  // Print the result
-  /*for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    std::cout << "output[" << i << "]: " << h_output[i] << std::endl;
-  }*/
-  delete[] h_q;
-  delete[] h_k;
-  delete[] h_v;
-  delete[] h_maxValues;
-  delete[] h_sumValues;
-  delete[] h_output;
-  cudaFree(d_q);
-  cudaFree(d_k);
-  cudaFree(d_v);
-  cudaFree(d_maxValues);
-  cudaFree(d_sumValues);
-  cudaFree(d_output);
-  std::cout << "freed memory on device!" << std::endl;
+    // Copy the result back to host
+    float *h_output = new float[num_heads * seq_len * qkv_dim];
+    cudaMemcpy(h_output, d_output,
+               num_heads * seq_len * qkv_dim * sizeof(float),
+               cudaMemcpyDeviceToHost);
+    std::cout << "copied result to host!" << std::endl;
+    // Print the result
+    /*for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+      std::cout << "output[" << i << "]: " << h_output[i] << std::endl;
+    }*/
+    delete[] h_q;
+    delete[] h_k;
+    delete[] h_v;
+    delete[] h_maxValues;
+    delete[] h_sumValues;
+    delete[] h_output;
+    cudaFree(d_q);
+    cudaFree(d_k);
+    cudaFree(d_v);
+    cudaFree(d_maxValues);
+    cudaFree(d_sumValues);
+    cudaFree(d_output);
+    std::cout << "freed memory on device!" << std::endl;
+  }
 }
