@@ -168,7 +168,6 @@ int main(int argc, char *argv[]) {
     h_q[i] = __float2half(dis(gen));
     h_k[i] = __float2half(dis(gen));
     h_v[i] = __float2half(dis(gen));
-           << std::endl;
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
@@ -247,7 +246,6 @@ int main(int argc, char *argv[]) {
   }
 
   // Copy the result back to host
-  float *h_output = new float[num_heads * seq_len * qkv_dim];
   cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
