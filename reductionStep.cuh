@@ -72,7 +72,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
   }
   // cast qkt to half
   for (int i = tid; i < b_r * b_c; i += WARP_SIZE * WARPS_PER_BLOCK) {
-    casted_qkt[i] = (half)(shared_qkt[i]);
+    casted_qkt[i] = __float2half(shared_qkt[i]);
   }
   __syncthreads();
   // handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x

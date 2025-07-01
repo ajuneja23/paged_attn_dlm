@@ -144,33 +144,31 @@ int main(int argc, char *argv[]) {
   std::cout << "sequence length: " << seq_len << std::endl;
   constexpr int qkv_dim = 64;
   constexpr int num_heads = 16;
-  half *d_q;
-  half *d_k;
-  half *d_v;
+  __half *d_q;
+  __half *d_k;
+  __half *d_v;
   float *d_maxValues;
   float *d_sumValues;
   float *d_output;
   int b_c = 32;
   int b_r = 32;
-  cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(half));
-  cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(half));
-  cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(half));
+  cudaMalloc(&d_q, num_heads * seq_len * qkv_dim * sizeof(__half));
+  cudaMalloc(&d_k, num_heads * seq_len * qkv_dim * sizeof(__half));
+  cudaMalloc(&d_v, num_heads * seq_len * qkv_dim * sizeof(__half));
   cudaMalloc(&d_maxValues, num_heads * seq_len * sizeof(float));
   cudaMalloc(&d_sumValues, num_heads * seq_len * sizeof(float));
   cudaMalloc(&d_output, num_heads * seq_len * qkv_dim * sizeof(float));
   std::cout << "allocated memory on device!" << std::endl;
-  half *h_q = new half[num_heads * seq_len * qkv_dim];
+  __half *h_q = new __half[num_heads * seq_len * qkv_dim];
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-  half *h_k = new half[num_heads * seq_len * qkv_dim];
-  half *h_v = new half[num_heads * seq_len * qkv_dim];
+  __half *h_k = new __half[num_heads * seq_len * qkv_dim];
+  __half *h_v = new __half[num_heads * seq_len * qkv_dim];
   for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    h_q[i] = static_cast<half>(dis(gen));
-    h_k[i] = static_cast<half>(dis(gen));
-    h_v[i] = static_cast<half>(dis(gen));
-    //   std::cout << "Elements at index " << i << ": " << __half2float(h_q[i])
-    //             << " " << __half2float(h_k[i]) << " " << __half2float(h_v[i])
-    //             << std::endl;
+    h_q[i] = __float2half(dis(gen));
+    h_k[i] = __float2half(dis(gen));
+    h_v[i] = __float2half(dis(gen));
+           << std::endl;
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
@@ -179,11 +177,11 @@ int main(int argc, char *argv[]) {
     h_sumValues[i] = 0.0f;
   }
   std::cout << "filled host memory!" << std::endl;
-  cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(half),
+  cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(__half),
              cudaMemcpyHostToDevice);
-  cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(half),
+  cudaMemcpy(d_k, h_k, num_heads * seq_len * qkv_dim * sizeof(__half),
              cudaMemcpyHostToDevice);
-  cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(half),
+  cudaMemcpy(d_v, h_v, num_heads * seq_len * qkv_dim * sizeof(__half),
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_maxValues, h_maxValues, num_heads * seq_len * sizeof(float),
              cudaMemcpyHostToDevice);
@@ -193,7 +191,7 @@ int main(int argc, char *argv[]) {
   dim3 threadsPerBlock(8, 16);
   dim3 numBlocks(4, 4);
   // calc shmem size
-  shared_mem_requirements<half> halfshmem_req[4] = {
+  shared_mem_requirements<__half> halfshmem_req[4] = {
       {{b_r, qkv_dim}},
       {{b_c, qkv_dim}},
       {{b_c, qkv_dim}},
@@ -214,7 +212,7 @@ int main(int argc, char *argv[]) {
   int sizePrefixes[10] = {0};
   for (int i = 0; i < 4; i++) {
     int byteCount =
-        halfshmem_req[i].dims[0] * halfshmem_req[i].dims[1] * sizeof(half);
+        halfshmem_req[i].dims[0] * halfshmem_req[i].dims[1] * sizeof(__half);
     total_size += byteCount;
     sizePrefixes[i + 1] = sizePrefixes[i] + byteCount;
   }
