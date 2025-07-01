@@ -30,6 +30,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
          j += WARP_SIZE) { // col in qk^t matrix
       m_ijProposal = fmaxf(m_ijProposal, shared_qkt[i * b_c + j]);
     }
+    __syncwarp();
     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {
       m_ijProposal = fmaxf(m_ijProposal,
                            __shfl_down_sync(0xFFFFFFFF, m_ijProposal, offset));
@@ -38,7 +39,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       maxValues[i] = fmaxf(maxValues[i], m_ijProposal);
     }
     m_ijProposal = __shfl_sync(0xFFFFFFFF, m_ijProposal, 0);
-    float runningSum = 0;
+    float runningSum = 0.0f;
     for (int j = laneid; j < b_c; j += WARP_SIZE) {
       shared_qkt[i * b_c + j] -= m_ijProposal;
       if (j >= kElementsTracked) {
@@ -68,13 +69,13 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
                                 output[i * qkv_dim + j];
     }
     sumValues[i] = l_inew;
-    __syncthreads();
   }
   // cast qkt to half
   for (int i = tid; i < b_r * b_c; i += WARP_SIZE * WARPS_PER_BLOCK) {
     casted_qkt[i] = __float2half(shared_qkt[i]);
   }
   __syncthreads();
+
   // handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x
   // b_c(16x16 tiling). v_j is shared_v as a b_c x qkv_dim (16x8 tiling)
   int req_x_tiles = ceilf(qkv_dim / TILE_X_SIZE);
@@ -116,12 +117,9 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       unsigned const *p_ptr = reinterpret_cast<unsigned const *>(p_elements);
       unsigned const *v_ptr = reinterpret_cast<unsigned const *>(v_elements);
       // use mma instruction
+      __syncwarp();
       asm volatile(
-          "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32" // just handling
-                                                              // the f32 accum
-                                                              // f16 mat A,B
-                                                              // pattern for
-                                                              // now
+          "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
           "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
           : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
           : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]),

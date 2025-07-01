@@ -172,9 +172,13 @@ int main(int argc, char *argv[]) {
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
+  float *h_output=new float[num_heads*seq_len*qkv_dim];
   for (int i = 0; i < num_heads * seq_len; ++i) {
     h_maxValues[i] = -INFINITY;
     h_sumValues[i] = 0.0f;
+    for (int j = 0; j < qkv_dim; ++j) {
+      h_output[i * qkv_dim + j] = 0.0f; // initialize output to 0
+    }
   }
   std::cout << "filled host memory!" << std::endl;
   cudaMemcpy(d_q, h_q, num_heads * seq_len * qkv_dim * sizeof(__half),
@@ -187,7 +191,7 @@ int main(int argc, char *argv[]) {
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_sumValues, h_sumValues, num_heads * seq_len * sizeof(float),
              cudaMemcpyHostToDevice);
-
+  cudaMemcpy(d_output,h_output,num_heads*seq_len*qkv_dim*sizeof(float),cudaMemcpyHostToDevice);
   dim3 threadsPerBlock(8, 16);
   dim3 numBlocks(4, 4);
   // calc shmem size
@@ -226,11 +230,6 @@ int main(int argc, char *argv[]) {
   cudaMalloc(&d_sizePrefixes, sizeof(int) * 10);
   cudaMemcpy(d_sizePrefixes, sizePrefixes, sizeof(int) * 10,
              cudaMemcpyHostToDevice);
-  // int device;
-  // cudaGetDevice(&device);
-  // int shmem_per_sm;
-  // cudaDeviceGetAttribute(&shmem_per_sm, cudaDevAttrSharedMemPerMultiprocessor, 0);
-  // std::cout<<"allowable shmem per SM:"<<shmem_per_sm<<std::endl;
   std::cout << "total shmem size: " << total_size << std::endl;
   std::cout << "size prefixes: ";
   for (int i = 0; i < 10; i++) {
