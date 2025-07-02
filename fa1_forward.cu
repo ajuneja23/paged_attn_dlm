@@ -40,14 +40,18 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
   if (bid < num_heads) { // bid=head_id
     int head_prefix = head_id * seq_len * qkv_dim;
     int t_c = ceilf(static_cast<float>(seq_len) / b_c);
-    printf("t_c: %d\n", t_c);
     int t_r = ceilf(static_cast<float>(seq_len) / b_r);
-    printf("t_r: %d\n", t_r);
+    if (tid == 0) {
+      printf("t_c %d, t_r %d, b_c %d, b_r %d, seq_len %d\n", t_c, t_r, b_c, b_r, seq_len);
+    }
     for (int j = 0; j < t_c; j++) { // load in qkv_dim*b_c elements
       int elementsToLoad = b_c * qkv_dim;
       int trueElementsToLoad = -1;
       int kElementsTracked = b_c;
-      printf("kElementsTracked: %d\n", kElementsTracked);
+      if (tid == 0) {
+        printf("kElementsTracked: %d\n", kElementsTracked);
+      }
+
       if (j == t_c - 1) {
         kElementsTracked = seq_len - j * b_c;
         trueElementsToLoad = seq_len * qkv_dim - j * b_c * qkv_dim;
@@ -94,7 +98,9 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
         if (warpid < WARPS_PER_BLOCK / 2) {
           for (int z = tid; z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_maxValues[z] = maxValues[head_id * seq_len + i * b_r + z];
-            printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]); 
+            if (tid == 0) {
+              printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]); 
+            }
           }
         } else {
           for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < qElementsTracked;
