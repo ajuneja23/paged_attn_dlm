@@ -2,10 +2,11 @@
 #include <iostream>
 // parallelize on heads first
 template <int qkv_dim, int num_heads>
-__global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
-                        float *sumValues, float *output, int seq_len, int b_c,
-                        int b_r, int* sizePrefixes) { // q layout is (qkv_dim,seq_len,num_heads):
-                                   // (1, qkv_dim,qkv_dim*seq_len). same for k,v
+__global__ void
+fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
+        float *output, int seq_len, int b_c, int b_r,
+        int *sizePrefixes) { // q layout is (qkv_dim,seq_len,num_heads):
+                             // (1, qkv_dim,qkv_dim*seq_len). same for k,v
   int tid = threadIdx.y * blockDim.x + threadIdx.x;
   int bid = blockIdx.y * gridDim.x + blockIdx.x;
 
@@ -42,7 +43,8 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
     int t_c = ceilf(static_cast<float>(seq_len) / b_c);
     int t_r = ceilf(static_cast<float>(seq_len) / b_r);
     if (tid == 0) {
-      printf("t_c %d, t_r %d, b_c %d, b_r %d, seq_len %d\n", t_c, t_r, b_c, b_r, seq_len);
+      printf("t_c %d, t_r %d, b_c %d, b_r %d, seq_len %d\n", t_c, t_r, b_c, b_r,
+             seq_len);
     }
     for (int j = 0; j < t_c; j++) { // load in qkv_dim*b_c elements
       int elementsToLoad = b_c * qkv_dim;
@@ -96,16 +98,20 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
         // first half of warps load in maxValues, second half load in
         // sumValues
         if (warpid < WARPS_PER_BLOCK / 2) {
-          for (int z = tid; z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
+          for (int z = tid; z < qElementsTracked;
+               z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_maxValues[z] = maxValues[head_id * seq_len + i * b_r + z];
             if (tid == 0) {
-              printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]); 
+              printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]);
             }
           }
         } else {
-          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < qElementsTracked;
-               z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
+          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2);
+               z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_sumValues[z] = sumValues[head_id * seq_len + i * b_r + z];
+            if (tid == 0) {
+              printf("shared_sumValues[%d]: %f\n", z, shared_sumValues[z]);
+            }
           }
         }
         // collaborate on O block loading
@@ -122,12 +128,13 @@ __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
         __syncthreads();
         // write output to DRAM
         if (warpid < WARPS_PER_BLOCK / 2) {
-          for (int z = tid; z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
+          for (int z = tid; z < qElementsTracked;
+               z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             maxValues[head_id * seq_len + i * b_r + z] = shared_maxValues[z];
           }
         } else {
-          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2); z < qElementsTracked;
-               z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
+          for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2);
+               z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             sumValues[head_id * seq_len + i * b_r + z] = shared_sumValues[z];
           }
         }
@@ -177,7 +184,7 @@ int main(int argc, char *argv[]) {
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
-  float *h_output=new float[num_heads*seq_len*qkv_dim];
+  float *h_output = new float[num_heads * seq_len * qkv_dim];
   for (int i = 0; i < num_heads * seq_len; ++i) {
     h_maxValues[i] = -INFINITY;
     h_sumValues[i] = 0.0f;
@@ -196,7 +203,8 @@ int main(int argc, char *argv[]) {
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_sumValues, h_sumValues, num_heads * seq_len * sizeof(float),
              cudaMemcpyHostToDevice);
-  cudaMemcpy(d_output,h_output,num_heads*seq_len*qkv_dim*sizeof(float),cudaMemcpyHostToDevice);
+  cudaMemcpy(d_output, h_output, num_heads * seq_len * qkv_dim * sizeof(float),
+             cudaMemcpyHostToDevice);
   dim3 threadsPerBlock(8, 16);
   dim3 numBlocks(4, 4);
   // calc shmem size
@@ -208,7 +216,7 @@ int main(int argc, char *argv[]) {
   };
   shared_mem_requirements<float> floatshmem_req[6] = {
       {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
-      {{b_r, b_c}}, {{b_r, 1}},    {{b_r, qkv_dim}}};
+      {{b_r, b_c}}, {{b_r, 1}}, {{b_r, qkv_dim}}};
   for (int i = 0; i < 4; i++) {
     std::cout << "halfshmem_req[" << i << "]: " << halfshmem_req[i].dims[0]
               << " " << halfshmem_req[i].dims[1] << std::endl;
@@ -243,7 +251,8 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   std::cout << "starting kernel!" << std::endl;
   fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
-      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r, d_sizePrefixes);
+      d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r,
+      d_sizePrefixes);
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
     std::cerr << "Kernel launch failed: " << cudaGetErrorString(err)
