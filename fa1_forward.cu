@@ -89,7 +89,10 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         }
 
         // load in maxValues, sumValues
-
+        if (tid == 0) {
+          printf("shared_sumValues[0]: %f\n", shared_sumValues[0]);
+        }
+        return;
         __syncthreads();
         calcQKT<qkv_dim>(shared_q, shared_k, shared_qkt, laneid, warpid, b_c,
                          b_r);
