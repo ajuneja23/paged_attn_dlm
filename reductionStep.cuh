@@ -68,6 +68,14 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
                                 expf(curMax - fmaxf(curMax, m_ijProposal)) *
                                 output[i * qkv_dim + j];
     }
+    if (__isnan(l_inew)) {
+      printf("ERROR: l_inew is nan\n");
+      printf(
+          "curMax: %f, m_ijProposal: %f, curRunningSum: %f, runningSum: %f\n",
+          curMax, m_ijProposal, curRunningSum, runningSum);
+      __trap(); // force fail
+      return;
+    }
     sumValues[i] = l_inew;
   }
   // cast qkt to half
