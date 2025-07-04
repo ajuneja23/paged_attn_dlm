@@ -109,7 +109,8 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
           for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2);
                z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_sumValues[z] = sumValues[head_id * seq_len + i * b_r + z];
-            if (tid == 0) {
+            if (tid == (WARP_SIZE * WARPS_PER_BLOCK /
+                        2)) { // print first thread's value
               printf("shared_sumValues[%d]: %f\n", z, shared_sumValues[z]);
             }
           }
