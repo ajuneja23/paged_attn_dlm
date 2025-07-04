@@ -64,7 +64,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     }
     // update O_i
     for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
-      output[i * qkv_dim + j] = (curRunningSum / l_inew) *
+      output[i * qkv_dim + j] = (curRunningSum / (l_inew + 1e-5f)) *
                                 expf(curMax - fmaxf(curMax, m_ijProposal)) *
                                 output[i * qkv_dim + j];
     }
@@ -118,13 +118,12 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       unsigned const *v_ptr = reinterpret_cast<unsigned const *>(v_elements);
       // use mma instruction
       __syncwarp();
-      asm volatile(
-          "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
-          "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
-          : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
-          : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]),
-            "r"(v_ptr[0]), "r"(v_ptr[1]), "f"(rC[0]), "f"(rC[1]), "f"(rC[2]),
-            "f"(rC[3]));
+      asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
+                   "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
+                   : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
+                   : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]),
+                     "r"(v_ptr[0]), "r"(v_ptr[1]), "f"(rC[0]), "f"(rC[1]),
+                     "f"(rC[2]), "f"(rC[3]));
     }
     intermediatePV[(output_u_left[0] + laneid / 4) * qkv_dim +
                    output_u_left[1] + 2 * (laneid % 4)] = rC[0];
@@ -139,7 +138,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
   // final O_i update
   for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
     float coefficient =
-        expf(intermediateRowMaxes[i] - maxValues[i]) / sumValues[i];
+        expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
     for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
       output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
     }
