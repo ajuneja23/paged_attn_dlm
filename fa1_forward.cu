@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
   int seq_len = std::stoi(argv[1]);
   std::cout << "sequence length: " << seq_len << std::endl;
   constexpr int qkv_dim = 64;
-  constexpr int num_heads = 16;
+  constexpr int num_heads = 1;
   __half *d_q;
   __half *d_k;
   __half *d_v;
@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(d_output, h_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyHostToDevice);
   dim3 threadsPerBlock(8, 16);
-  dim3 numBlocks(4, 4);
+  dim3 numBlocks(1, 1);
   // calc shmem size
   shared_mem_requirements<__half> halfshmem_req[4] = {
       {{b_r, qkv_dim}},
