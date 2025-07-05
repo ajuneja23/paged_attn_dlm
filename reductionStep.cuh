@@ -24,7 +24,6 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
   // calculate maxValues, P_{ij} matrix, and l_ij values. split work for each
   // row across warps
   printf("shared_qkt[0]: %f\n", shared_qkt[0]);
-  return;
   for (int i = warpid; i < qElementsTracked;
        i += WARPS_PER_BLOCK) { // row in the qk^t matrix
     if (laneid == 0) {

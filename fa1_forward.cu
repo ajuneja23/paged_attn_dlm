@@ -25,17 +25,22 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   for (int i = 0; i < 10; i++) {
     printf("sizePrefixes[%d]: %d\n", i, sizePrefixes[i]);
   }
-  return;
-  half *shared_q = (half *)(shared_mem + sizePrefixes[0]);
-  half *shared_k = (half *)(shared_mem + sizePrefixes[1]);
-  half *shared_v = (half *)(shared_mem + sizePrefixes[2]);
-  float *shared_maxValues = (float *)(shared_mem + sizePrefixes[3]);
-  float *shared_sumValues = (float *)(shared_mem + sizePrefixes[4]);
-  float *shared_output = (float *)(shared_mem + sizePrefixes[5]);
-  float *shared_qkt = (float *)(shared_mem + sizePrefixes[6]);
-  float *shared_intermediateRowMaxes = (float *)(shared_mem + sizePrefixes[7]);
-  half *shared_casted_qkt = (half *)(shared_mem + sizePrefixes[8]);
-  float *shared_intermediatePV = (float *)(shared_mem + sizePrefixes[9]);
+  half *shared_q = reinterpret_cast<half *>(shared_mem + sizePrefixes[0]);
+  half *shared_k = reinterpret_cast<half *>(shared_mem + sizePrefixes[1]);
+  half *shared_v = reinterpret_cast<half *>(shared_mem + sizePrefixes[2]);
+  float *shared_maxValues =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[3]);
+  float *shared_sumValues =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[4]);
+  float *shared_output =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[5]);
+  float *shared_qkt = reinterpret_cast<float *>(shared_mem + sizePrefixes[6]);
+  float *shared_intermediateRowMaxes =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[7]);
+  half *shared_casted_qkt =
+      reinterpret_cast<half *>(shared_mem + sizePrefixes[8]);
+  float *shared_intermediatePV =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[9]);
   int warpid = tid / WARP_SIZE;
   int laneid = tid % WARP_SIZE;
   if (tid == 0) {
