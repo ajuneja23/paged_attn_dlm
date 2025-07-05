@@ -125,6 +125,10 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
           shared_output[z] = output[head_prefix + i * b_r * qkv_dim + z];
         }
         __syncthreads();
+        if (tid == 0) {
+          printf("shared_qkt[0]: %f\n", shared_qkt[0]);
+        }
+        __syncthreads();
         reductionStep<qkv_dim>(
             shared_qkt, shared_maxValues, shared_sumValues, shared_v,
             shared_output, shared_intermediateRowMaxes, shared_intermediatePV,
