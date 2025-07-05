@@ -25,14 +25,14 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
   // row across warps
   for (int i = warpid; i < qElementsTracked;
        i += WARPS_PER_BLOCK) { // row in the qk^t matrix
+    if (laneid == 0) {
+      printf("shared_qkt[%d * %d + %d]: %f\n", i, b_c, j,
+             shared_qkt[i * b_c + j]);
+    }
     float m_ijProposal = -INFINITY;
     for (int j = laneid; j < kElementsTracked;
          j += WARP_SIZE) { // col in qk^t matrix
       m_ijProposal = fmaxf(m_ijProposal, shared_qkt[i * b_c + j]);
-      if (laneid == 0) {
-        printf("shared_qkt[%d * %d + %d]: %f\n", i, b_c, j,
-               shared_qkt[i * b_c + j]);
-      }
     }
     __syncwarp();
     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {
