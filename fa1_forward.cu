@@ -93,6 +93,7 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         calcQKT<qkv_dim>(shared_q, shared_k, shared_qkt, laneid, warpid, b_c,
                          b_r);
         __syncthreads();
+        return;
         // load in all required sram utils from dram
         // first half of warps load in maxValues, second half load in
         // sumValues
