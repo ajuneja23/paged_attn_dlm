@@ -71,7 +71,8 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
       unsigned const *q_ptr = reinterpret_cast<unsigned const *>(
           q_elements); // reinterpret as a 4 element array of unsigned ints
       unsigned const *k_ptr = reinterpret_cast<unsigned const *>(k_elements);
-
+      __syncwarp(); // before mma, sync to ensure all lanes have loaded their
+                    // data
       // use mma instruction
       asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
                    "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
