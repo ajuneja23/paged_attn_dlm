@@ -80,29 +80,6 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                    : "r"(q_ptr[0]), "r"(q_ptr[1]), "r"(q_ptr[2]), "r"(q_ptr[3]),
                      "r"(k_ptr[0]), "r"(k_ptr[1]), "f"(rC[0]), "f"(rC[1]),
                      "f"(rC[2]), "f"(rC[3]));
-      if (laneid == 0 && warpid == 0) {
-        printf("AFTER MMA ITER  %d\n ", j);
-        printf("rC[0]: %f\n", rC[0]);
-        printf("rC[1]: %f\n", rC[1]);
-        if (rC[0] != rC[0]) {
-          printf("rC[0] is nan\n");
-          __trap();
-        }
-        if (rC[1] != rC[1]) {
-          printf("rC[1] is nan\n");
-          __trap();
-        }
-        if (rC[2] != rC[2]) {
-          printf("rC[2] is nan\n");
-          __trap();
-        }
-        if (rC[3] != rC[3]) {
-          printf("rC[3] is nan\n");
-          __trap();
-        }
-        printf("rC[2]: %f\n", rC[2]);
-        printf("rC[3]: %f\n", rC[3]);
-      }
     }
 
     // store to smem
@@ -114,11 +91,5 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                output_tile_uleft[1] + 2 * (laneid % 4)] = rC[2];
     shared_qkt[(output_tile_uleft[0] + laneid / 4 + 8) * b_c +
                output_tile_uleft[1] + 2 * (laneid % 4) + 1] = rC[3];
-  }
-  if (laneid == 0 && warpid == 0) {
-    printf("shared_qkt[0]: %f\n", shared_qkt[0]);
-    printf("shared_qkt[1]: %f\n", shared_qkt[1]);
-    printf("shared_qkt[2]: %f\n", shared_qkt[2]);
-    printf("shared_qkt[3]: %f\n", shared_qkt[3]);
   }
 }
