@@ -80,8 +80,25 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                      "r"(k_ptr[0]), "r"(k_ptr[1]), "f"(rC[0]), "f"(rC[1]),
                      "f"(rC[2]), "f"(rC[3]));
       if (laneid == 0 && warpid == 0) {
-        printf("AFTER MMA ITER ") printf("rC[0]: %f\n", rC[0]);
+        printf("AFTER MMA ITER  %d\n ", j);
+        printf("rC[0]: %f\n", rC[0]);
         printf("rC[1]: %f\n", rC[1]);
+        if (rC[0] != rC[0]) {
+          printf("rC[0] is nan\n");
+          __trap();
+        }
+        if (rC[1] != rC[1]) {
+          printf("rC[1] is nan\n");
+          __trap();
+        }
+        if (rC[2] != rC[2]) {
+          printf("rC[2] is nan\n");
+          __trap();
+        }
+        if (rC[3] != rC[3]) {
+          printf("rC[3] is nan\n");
+          __trap();
+        }
         printf("rC[2]: %f\n", rC[2]);
         printf("rC[3]: %f\n", rC[3]);
       }
