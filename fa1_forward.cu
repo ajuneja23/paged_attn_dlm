@@ -22,6 +22,10 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   // extern __shared__ float shared_intermediatePV[b_r][qkv_dim];//need to
   // combine all of this into one shmem
   extern __shared__ char shared_mem[];
+  for (int i = 0; i < 10; i++) {
+    printf("sizePrefixes[%d]: %d\n", i, sizePrefixes[i]);
+  }
+  return;
   half *shared_q = (half *)(shared_mem + sizePrefixes[0]);
   half *shared_k = (half *)(shared_mem + sizePrefixes[1]);
   half *shared_v = (half *)(shared_mem + sizePrefixes[2]);
