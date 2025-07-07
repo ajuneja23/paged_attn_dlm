@@ -10,21 +10,19 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   int tid = threadIdx.y * blockDim.x + threadIdx.x;
   int bid = blockIdx.y * gridDim.x + blockIdx.x;
 
-  // extern __shared__ half shared_q[b_r][qkv_dim];
-  // extern __shared__ half shared_k[b_c][qkv_dim];
-  // extern __shared__ half shared_v[b_c][qkv_dim];
-  // extern __shared__ float shared_maxValues[b_r];
-  // extern __shared__ float shared_sumValues[b_r];
-  // extern __shared__ float shared_output[b_r][qkv_dim];
-  // extern __shared__ float shared_qkt[b_r][b_c];
-  // extern __shared__ float shared_intermediateRowMaxes[b_r];
-  // extern __shared__ half casted_qkt[b_r][b_c];
-  // extern __shared__ float shared_intermediatePV[b_r][qkv_dim];//need to
+  // shared_q[b_r][qkv_dim];
+  // shared_k[b_c][qkv_dim];
+  //  shared_v[b_c][qkv_dim];
+  //  shared_maxValues[b_r];
+  //  shared_sumValues[b_r];
+  //  shared_output[b_r][qkv_dim];
+  //  shared_qkt[b_r][b_c];
+  //  shared_intermediateRowMaxes[b_r];
+  //  casted_qkt[b_r][b_c];
+  //  shared_intermediatePV[b_r][qkv_dim];//need to
   // combine all of this into one shmem
   extern __shared__ char shared_mem[];
-  for (int i = 0; i < 10; i++) {
-    printf("sizePrefixes[%d]: %d\n", i, sizePrefixes[i]);
-  }
+
   half *shared_q = reinterpret_cast<half *>(shared_mem + sizePrefixes[0]);
   half *shared_k = reinterpret_cast<half *>(shared_mem + sizePrefixes[1]);
   half *shared_v = reinterpret_cast<half *>(shared_mem + sizePrefixes[2]);
@@ -41,6 +39,17 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
       reinterpret_cast<half *>(shared_mem + sizePrefixes[8]);
   float *shared_intermediatePV =
       reinterpret_cast<float *>(shared_mem + sizePrefixes[9]);
+  if (tid == 0) {
+    printf("POINTER ADDRESSES: shared_q: %p, shared_k: %p, shared_v: %p, "
+           "shared_maxValues: %p, shared_sumValues: %p, shared_output: %p, "
+           "shared_qkt: %p, shared_intermediateRowMaxes: %p, "
+           "shared_casted_qkt: %p, shared_intermediatePV: %p\n",
+           (void *)shared_q, (void *)shared_k, (void *)shared_v,
+           (void *)shared_maxValues, (void *)shared_sumValues,
+           (void *)shared_output, (void *)shared_qkt,
+           (void *)shared_intermediateRowMaxes, (void *)shared_casted_qkt,
+           (void *)shared_intermediatePV);
+  }
   int warpid = tid / WARP_SIZE;
   int laneid = tid % WARP_SIZE;
   if (tid == 0) {
@@ -227,14 +236,16 @@ int main(int argc, char *argv[]) {
   dim3 numBlocks(1, 1);
   // calc shmem size
   shared_mem_requirements<__half> halfshmem_req[4] = {
-      {{b_r, qkv_dim}},
-      {{b_c, qkv_dim}},
-      {{b_c, qkv_dim}},
-      {{b_r, b_c}},
+      {.dims = {b_r, qkv_dim}}, // q
+      {.dims = {b_c, qkv_dim}}, // k
+      {.dims = {b_c, qkv_dim}}, // v
+      {.dims = {b_r, b_c}},     // casted_qkt
   };
   shared_mem_requirements<float> floatshmem_req[6] = {
-      {{b_r, 1}},   {{b_r, 1}}, {{b_r, qkv_dim}},
-      {{b_r, b_c}}, {{b_r, 1}}, {{b_r, qkv_dim}}};
+      {.dims = {b_r, 1}},       {.dims = {b_r, 1}},
+      {.dims = {b_r, qkv_dim}}, // maxValues, sumValues,
+      {.dims = {b_r, b_c}},     {.dims = {b_r, 1}},
+      {.dims = {b_r, qkv_dim}}};
   for (int i = 0; i < 4; i++) {
     std::cout << "halfshmem_req[" << i << "]: " << halfshmem_req[i].dims[0]
               << " " << halfshmem_req[i].dims[1] << std::endl;
@@ -278,14 +289,9 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Copy the result back to host
   cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
-  // Print the result
-  /*for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    std::cout << "output[" << i << "]: " << h_output[i] << std::endl;
-  }*/
   delete[] h_q;
   delete[] h_k;
   delete[] h_v;
