@@ -26,17 +26,17 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
   half *shared_q = reinterpret_cast<half *>(shared_mem + sizePrefixes[0]);
   half *shared_k = reinterpret_cast<half *>(shared_mem + sizePrefixes[1]);
   half *shared_v = reinterpret_cast<half *>(shared_mem + sizePrefixes[2]);
-  float *shared_maxValues =
-      reinterpret_cast<float *>(shared_mem + sizePrefixes[3]);
-  float *shared_sumValues =
-      reinterpret_cast<float *>(shared_mem + sizePrefixes[4]);
-  float *shared_output =
-      reinterpret_cast<float *>(shared_mem + sizePrefixes[5]);
-  float *shared_qkt = reinterpret_cast<float *>(shared_mem + sizePrefixes[6]);
-  float *shared_intermediateRowMaxes =
-      reinterpret_cast<float *>(shared_mem + sizePrefixes[7]);
   half *shared_casted_qkt =
-      reinterpret_cast<half *>(shared_mem + sizePrefixes[8]);
+      reinterpret_cast<half *>(shared_mem + sizePrefixes[3]);
+  float *shared_maxValues =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[4]);
+  float *shared_sumValues =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[5]);
+  float *shared_output =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[6]);
+  float *shared_qkt = reinterpret_cast<float *>(shared_mem + sizePrefixes[7]);
+  float *shared_intermediateRowMaxes =
+      reinterpret_cast<float *>(shared_mem + sizePrefixes[8]);
   float *shared_intermediatePV =
       reinterpret_cast<float *>(shared_mem + sizePrefixes[9]);
   if (tid == 0) {
