@@ -122,6 +122,13 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
             shared_output, shared_intermediateRowMaxes, shared_intermediatePV,
             shared_casted_qkt, warpid, laneid, tid, b_c, b_r, kElementsTracked,
             qElementsTracked);
+        if (tid == 0) {
+          printf("shared_output[0]: %f\n", shared_output[0]);
+          printf("shared_intermediateRowMaxes[0]: %f\n",
+                 shared_intermediateRowMaxes[0]);
+          printf("shared_intermediatePV[0]: %f\n", shared_intermediatePV[0]);
+          printf("shared_casted_qkt[0]: %f\n", shared_casted_qkt[0]);
+        }
         __syncthreads();
         // write output to DRAM
         if (warpid < WARPS_PER_BLOCK / 2) {
