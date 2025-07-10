@@ -294,23 +294,22 @@ int main(int argc, char *argv[]) {
                 << i << "]: " << output_cpu[i] << std::endl;
     }
   }
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    delete[] h_q;
-    delete[] h_k;
-    delete[] h_v;
-    delete[] h_maxValues;
-    delete[] h_sumValues;
-    delete[] h_output;
-    delete[] float_h_q;
-    delete[] float_h_k;
-    delete[] float_h_v;
-    delete[] output_cpu;
-    cudaFree(d_q);
-    cudaFree(d_k);
-    cudaFree(d_v);
-    cudaFree(d_maxValues);
-    cudaFree(d_sumValues);
-    cudaFree(d_output);
-    std::cout << "freed memory on device!" << std::endl;
-  }
+
+  delete[] h_q;
+  delete[] h_k;
+  delete[] h_v;
+  delete[] h_maxValues;
+  delete[] h_sumValues;
+  delete[] h_output;
+  delete[] float_h_q;
+  delete[] float_h_k;
+  delete[] float_h_v;
+  delete[] output_cpu;
+  cudaFree(d_q);
+  cudaFree(d_k);
+  cudaFree(d_v);
+  cudaFree(d_maxValues);
+  cudaFree(d_sumValues);
+  cudaFree(d_output);
+  std::cout << "freed memory on device!" << std::endl;
 }
