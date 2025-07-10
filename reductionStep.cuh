@@ -23,13 +23,8 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
                               int kElementsTracked, int qElementsTracked) {
   // calculate maxValues, P_{ij} matrix, and l_ij values. split work for each
   // row across warps
-  printf("shared_qkt[0]: %f\n", shared_qkt[0]);
   for (int i = warpid; i < qElementsTracked;
        i += WARPS_PER_BLOCK) { // row in the qk^t matrix
-    if (laneid == 0) {
-      printf("shared_qkt[%d * %d + %d]: %f\n", i, b_c, 0,
-             shared_qkt[i * b_c + 0]);
-    }
     float m_ijProposal = -INFINITY;
     for (int j = laneid; j < kElementsTracked;
          j += WARP_SIZE) { // col in qk^t matrix
@@ -72,14 +67,6 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       output[i * qkv_dim + j] = (curRunningSum / (l_inew + 1e-5f)) *
                                 expf(curMax - fmaxf(curMax, m_ijProposal)) *
                                 output[i * qkv_dim + j];
-    }
-    if (__isnan(l_inew)) {
-      printf("ERROR: l_inew is nan\n");
-      printf(
-          "curMax: %f, m_ijProposal: %f, curRunningSum: %f, runningSum: %f\n",
-          curMax, m_ijProposal, curRunningSum, runningSum);
-      __trap(); // force fail
-      return;
     }
     sumValues[i] = l_inew;
   }

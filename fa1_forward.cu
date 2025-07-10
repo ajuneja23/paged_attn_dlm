@@ -1,4 +1,5 @@
 #include "fa1_forward.cuh"
+#include "naive_attention.h"
 #include <iostream>
 // parallelize on heads first
 template <int qkv_dim, int num_heads>
@@ -39,38 +40,18 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
       reinterpret_cast<float *>(shared_mem + sizePrefixes[8]);
   float *shared_intermediatePV =
       reinterpret_cast<float *>(shared_mem + sizePrefixes[9]);
-  if (tid == 0) {
-    printf("POINTER ADDRESSES: shared_q: %p, shared_k: %p, shared_v: %p, "
-           "shared_maxValues: %p, shared_sumValues: %p, shared_output: %p, "
-           "shared_qkt: %p, shared_intermediateRowMaxes: %p, "
-           "shared_casted_qkt: %p, shared_intermediatePV: %p\n",
-           (void *)shared_q, (void *)shared_k, (void *)shared_v,
-           (void *)shared_maxValues, (void *)shared_sumValues,
-           (void *)shared_output, (void *)shared_qkt,
-           (void *)shared_intermediateRowMaxes, (void *)shared_casted_qkt,
-           (void *)shared_intermediatePV);
-  }
   int warpid = tid / WARP_SIZE;
   int laneid = tid % WARP_SIZE;
-  if (tid == 0) {
-    printf("warp_id: %d, laneid: %d\n", warpid, laneid);
-  }
+
   int head_id = bid;
   if (bid < num_heads) { // bid=head_id
     int head_prefix = head_id * seq_len * qkv_dim;
     int t_c = ceilf(static_cast<float>(seq_len) / b_c);
     int t_r = ceilf(static_cast<float>(seq_len) / b_r);
-    if (tid == 0) {
-      printf("t_c %d, t_r %d, b_c %d, b_r %d, seq_len %d\n", t_c, t_r, b_c, b_r,
-             seq_len);
-    }
     for (int j = 0; j < t_c; j++) { // load in qkv_dim*b_c elements
       int elementsToLoad = b_c * qkv_dim;
       int trueElementsToLoad = -1;
       int kElementsTracked = b_c;
-      if (tid == 0) {
-        printf("kElementsTracked: %d\n", kElementsTracked);
-      }
 
       if (j == t_c - 1) {
         kElementsTracked = seq_len - j * b_c;
@@ -111,11 +92,6 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         calcQKT<qkv_dim>(shared_q, shared_k, shared_qkt, laneid, warpid, b_c,
                          b_r);
         __syncthreads();
-        for (int z = tid; z < b_r; z += (WARP_SIZE * WARPS_PER_BLOCK)) {
-          printf("shared_qkt[%d * %d]: %f\n", z, b_c, shared_qkt[z * b_c]);
-        }
-        __syncthreads();
-        // return;
         //  load in all required sram utils from dram
         //  first half of warps load in maxValues, second half load in
         //  sumValues
@@ -123,28 +99,17 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
           for (int z = tid; z < qElementsTracked;
                z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_maxValues[z] = maxValues[head_id * seq_len + i * b_r + z];
-            if (tid == 0) {
-              printf("shared_maxValues[%d]: %f\n", z, shared_maxValues[z]);
-            }
           }
         } else {
           for (int z = tid - (WARP_SIZE * WARPS_PER_BLOCK / 2);
                z < qElementsTracked; z += (WARP_SIZE * WARPS_PER_BLOCK / 2)) {
             shared_sumValues[z] = sumValues[head_id * seq_len + i * b_r + z];
-            if (tid == (WARP_SIZE * WARPS_PER_BLOCK /
-                        2)) { // print first thread's value
-              printf("shared_sumValues[%d]: %f\n", z, shared_sumValues[z]);
-            }
           }
         }
         // collaborate on O block loading
         for (int z = tid; z < qElementsTracked * qkv_dim;
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
           shared_output[z] = output[head_prefix + i * b_r * qkv_dim + z];
-        }
-        __syncthreads();
-        if (tid == 0) {
-          printf("shared_qkt[0]: %f\n", shared_qkt[0]);
         }
         __syncthreads();
         reductionStep<qkv_dim>(
@@ -168,7 +133,8 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         // collaborate on O block loading
         for (int z = tid; z < qElementsTracked * qkv_dim;
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
-          output[head_prefix + b_r * i * qkv_dim + z] = shared_output[z];
+          output[head_prefix + b_r * i * qkv_dim + z] =
+              shared_output[z]; // layout is (head_id,token_id,component_id)
         }
       }
     }
@@ -183,7 +149,7 @@ int main(int argc, char *argv[]) {
   int seq_len = std::stoi(argv[1]);
   std::cout << "sequence length: " << seq_len << std::endl;
   constexpr int qkv_dim = 64;
-  constexpr int num_heads = 1;
+  constexpr int num_heads = 8;
   __half *d_q;
   __half *d_k;
   __half *d_v;
@@ -292,17 +258,35 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
-  delete[] h_q;
-  delete[] h_k;
-  delete[] h_v;
-  delete[] h_maxValues;
-  delete[] h_sumValues;
-  delete[] h_output;
-  cudaFree(d_q);
-  cudaFree(d_k);
-  cudaFree(d_v);
-  cudaFree(d_maxValues);
-  cudaFree(d_sumValues);
-  cudaFree(d_output);
-  std::cout << "freed memory on device!" << std::endl;
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
+  }
+  // CPU ATTENTION CHECK
+  constexpr float err_tolerance = 1e-2;
+  float *output_cpu = new float[num_heads * seq_len * qkv_dim];
+  naive_attention(h_q, h_k, h_v, output_cpu, seq_len, qkv_dim, num_heads);
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
+  }
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
+      std::cout << "h_output[" << i << "]: " << h_output[i] << " != output_cpu["
+                << i << "]: " << output_cpu[i] << std::endl;
+    }
+  }
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    delete[] h_q;
+    delete[] h_k;
+    delete[] h_v;
+    delete[] h_maxValues;
+    delete[] h_sumValues;
+    delete[] h_output;
+    cudaFree(d_q);
+    cudaFree(d_k);
+    cudaFree(d_v);
+    cudaFree(d_maxValues);
+    cudaFree(d_sumValues);
+    cudaFree(d_output);
+    std::cout << "freed memory on device!" << std::endl;
+  }
 }

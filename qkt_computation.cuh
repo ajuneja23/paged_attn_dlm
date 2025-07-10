@@ -21,9 +21,7 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                         int laneid, int warpid, int b_c, int b_r) {
   int req_x_tiles = ceilf(b_c / TILE_X_SIZE);
   int req_y_tiles = ceilf(b_r / TILE_Y_SIZE);
-  if (laneid == 0 && warpid == 0) {
-    printf("req_x_tiles: %d, req_y_tiles: %d\n", req_x_tiles, req_y_tiles);
-  }
+
   int req_tiles =
       req_x_tiles * req_y_tiles; // # of tiles in full qk^t block output
   for (int i = warpid; i < req_tiles; i += WARPS_PER_BLOCK) {
