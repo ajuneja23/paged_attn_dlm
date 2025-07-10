@@ -168,12 +168,18 @@ int main(int argc, char *argv[]) {
   __half *h_q = new __half[num_heads * seq_len * qkv_dim];
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+  float *float_h_q = new float[num_heads * seq_len * qkv_dim];
+  float *float_h_k = new float[num_heads * seq_len * qkv_dim];
+  float *float_h_v = new float[num_heads * seq_len * qkv_dim];
   __half *h_k = new __half[num_heads * seq_len * qkv_dim];
   __half *h_v = new __half[num_heads * seq_len * qkv_dim];
   for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    h_q[i] = __float2half(dis(gen));
-    h_k[i] = __float2half(dis(gen));
-    h_v[i] = __float2half(dis(gen));
+    float_h_q[i] = dis(gen);
+    float_h_k[i] = dis(gen);
+    float_h_v[i] = dis(gen);
+    h_q[i] = __float2half(float_h_q[i]);
+    h_k[i] = __float2half(float_h_k[i]);
+    h_v[i] = __float2half(float_h_v[i]);
   }
   float *h_maxValues = new float[num_heads * seq_len];
   float *h_sumValues = new float[num_heads * seq_len];
@@ -264,7 +270,8 @@ int main(int argc, char *argv[]) {
   // CPU ATTENTION CHECK
   constexpr float err_tolerance = 1e-2;
   float *output_cpu = new float[num_heads * seq_len * qkv_dim];
-  naive_attention(h_q, h_k, h_v, output_cpu, seq_len, qkv_dim, num_heads);
+  naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len, qkv_dim,
+                  num_heads);
   for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
     std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
   }

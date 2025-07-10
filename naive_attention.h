@@ -3,7 +3,7 @@
 
 using namespace std;
 
-void naive_attention(float *q, float *k, float *v, float *output, int seq_len,
+void naive_attention(float *q, float *key, float *v, float *output, int seq_len,
                      int qkv_dim, int num_heads) {
   float *buffer = new float[seq_len * seq_len];
   for (int i = 0; i < num_heads; i++) {
@@ -13,7 +13,7 @@ void naive_attention(float *q, float *k, float *v, float *output, int seq_len,
         float dot_product = 0;
         for (int d = 0; d < qkv_dim; d++) {
           dot_product += (q[i * seq_len * qkv_dim + j * qkv_dim + d] *
-                          k[i * seq_len * qkv_dim + k * qkv_dim + d]);
+                          key[i * seq_len * qkv_dim + k * qkv_dim + d]);
         }
         buffer[j * seq_len + k] = dot_product;
       }
