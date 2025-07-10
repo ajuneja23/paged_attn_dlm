@@ -107,6 +107,11 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
           }
         }
         // collaborate on O block loading
+        if (tid == 0) {
+          printf("shared_qkt[0]: %f\n", shared_qkt[0]);
+          printf("shared_maxValues[0]: %f\n", shared_maxValues[0]);
+          printf("shared_sumValues[0]: %f\n", shared_sumValues[0]);
+        }
         for (int z = tid; z < qElementsTracked * qkv_dim;
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
           shared_output[z] = output[head_prefix + i * b_r * qkv_dim + z];
@@ -264,6 +269,7 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
+  return 0;
   for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
     std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
   }
@@ -288,6 +294,10 @@ int main(int argc, char *argv[]) {
     delete[] h_maxValues;
     delete[] h_sumValues;
     delete[] h_output;
+    delete[] float_h_q;
+    delete[] float_h_k;
+    delete[] float_h_v;
+    delete[] output_cpu;
     cudaFree(d_q);
     cudaFree(d_k);
     cudaFree(d_v);
