@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
   delete[] float_h_q;
   delete[] float_h_k;
   delete[] float_h_v;
-  delete[] output_cpu;
+  // delete[] output_cpu;
   cudaFree(d_q);
   cudaFree(d_k);
   cudaFree(d_v);
