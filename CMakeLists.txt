@@ -16,7 +16,7 @@ include_directories(${CUDAToolkit_ROOT}/include)
 
 link_directories(${CUDAToolkit_ROOT}/lib64)
 
-add_executable(fa1_forward fa1_forward.cu)
+add_executable(fa1_forward fa1_forward.cu naive_attention.cpp )
 target_link_libraries(fa1_forward CUDA::cudart)
 
 

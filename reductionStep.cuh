@@ -170,3 +170,4 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       }
     }
   }
+}

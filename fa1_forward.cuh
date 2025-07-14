@@ -14,6 +14,7 @@
 // using ampere m16n8k16 mma...new ports for hopper soon
 #define WARPS_PER_BLOCK 4
 #define WARP_SIZE 32
+#include "naive_attention.h"
 #include "qkt_computation.cuh"
 #include "reductionStep.cuh"
 
@@ -24,6 +25,6 @@ template <typename T> struct shared_mem_requirements {
 template <int qkv_dim, int num_heads>
 __global__ void fa1_fwd(half *q, half *k, half *v, float *maxValues,
                         float *sumValues, float *output, int seq_len, int b_c,
-                        int b_r, int* sizePrefixes);
+                        int b_r, int *sizePrefixes);
 
 __host__ void fa1_fwd_wrapper(int seq_len);

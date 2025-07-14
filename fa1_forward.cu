@@ -1,5 +1,4 @@
 #include "fa1_forward.cuh"
-#include "naive_attention.h"
 #include <iostream>
 // parallelize on heads first
 template <int qkv_dim, int num_heads>
@@ -277,23 +276,25 @@ int main(int argc, char *argv[]) {
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
   return 0;
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
-  }
-  // CPU ATTENTION CHECK
-  constexpr float err_tolerance = 1e-2;
-  float *output_cpu = new float[num_heads * seq_len * qkv_dim];
-  naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len, qkv_dim,
-                  num_heads);
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
-  }
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
-      std::cout << "h_output[" << i << "]: " << h_output[i] << " != output_cpu["
-                << i << "]: " << output_cpu[i] << std::endl;
-    }
-  }
+  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+  //   std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
+  // }
+  // // CPU ATTENTION CHECK
+  // constexpr float err_tolerance = 1e-2;
+  // float *output_cpu = new float[num_heads * seq_len * qkv_dim];
+  // naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len,
+  // qkv_dim,
+  //                 num_heads);
+  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+  //   std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
+  // }
+  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+  //   if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
+  //     std::cout << "h_output[" << i << "]: " << h_output[i] << " !=
+  //     output_cpu["
+  //               << i << "]: " << output_cpu[i] << std::endl;
+  //   }
+  // }
 
   delete[] h_q;
   delete[] h_k;
