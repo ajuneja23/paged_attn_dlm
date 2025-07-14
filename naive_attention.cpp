@@ -1,5 +1,7 @@
+#include <cmath>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 using namespace std;
 
@@ -21,7 +23,7 @@ void naive_attention(float *q, float *key, float *v, float *output, int seq_len,
 
     // Apply softmax to each row of the buffer
     for (int j = 0; j < seq_len; j++) {
-      float max_val = -INFINITY;
+      float max_val = -std::numeric_limits<float>::infinity();
       for (int k = 0; k < seq_len; k++) {
         if (buffer[j * seq_len + k] > max_val) {
           max_val = buffer[j * seq_len + k];
@@ -30,7 +32,7 @@ void naive_attention(float *q, float *key, float *v, float *output, int seq_len,
 
       float sum_exp = 0;
       for (int k = 0; k < seq_len; k++) {
-        buffer[j * seq_len + k] = exp(buffer[j * seq_len + k] - max_val);
+        buffer[j * seq_len + k] = std::exp(buffer[j * seq_len + k] - max_val);
         sum_exp += buffer[j * seq_len + k];
       }
 
