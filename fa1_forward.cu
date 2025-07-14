@@ -229,14 +229,6 @@ int main(int argc, char *argv[]) {
       {.dims = {b_r, qkv_dim}}, // maxValues, sumValues,
       {.dims = {b_r, b_c}},     {.dims = {b_r, 1}},
       {.dims = {b_r, qkv_dim}}};
-  for (int i = 0; i < 4; i++) {
-    std::cout << "halfshmem_req[" << i << "]: " << halfshmem_req[i].dims[0]
-              << " " << halfshmem_req[i].dims[1] << std::endl;
-  }
-  for (int i = 0; i < 6; i++) {
-    std::cout << "floatshmem_req[" << i << "]: " << floatshmem_req[i].dims[0]
-              << " " << floatshmem_req[i].dims[1] << std::endl;
-  }
   int total_size = 0;
   int sizePrefixes[10] = {0};
   for (int i = 0; i < 4; i++) {
@@ -255,12 +247,12 @@ int main(int argc, char *argv[]) {
   cudaMalloc(&d_sizePrefixes, sizeof(int) * 10);
   cudaMemcpy(d_sizePrefixes, sizePrefixes, sizeof(int) * 10,
              cudaMemcpyHostToDevice);
-  std::cout << "total shmem size: " << total_size << std::endl;
-  std::cout << "size prefixes: ";
+  // std::cout << "total shmem size: " << total_size << std::endl;
+  // std::cout << "size prefixes: ";
   for (int i = 0; i < 10; i++) {
-    std::cout << sizePrefixes[i] << " ";
+    // std::cout << sizePrefixes[i] << " ";
   }
-  std::cout << std::endl;
+  // std::cout << std::endl;
   std::cout << "starting kernel!" << std::endl;
   fa1_fwd<qkv_dim, num_heads><<<numBlocks, threadsPerBlock, total_size>>>(
       d_q, d_k, d_v, d_maxValues, d_sumValues, d_output, seq_len, b_c, b_r,
@@ -275,26 +267,25 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(h_output, d_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
-  return 0;
-  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-  //   std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
-  // }
-  // // CPU ATTENTION CHECK
-  // constexpr float err_tolerance = 1e-2;
-  // float *output_cpu = new float[num_heads * seq_len * qkv_dim];
-  // naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len,
-  // qkv_dim,
-  //                 num_heads);
-  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-  //   std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
-  // }
-  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-  //   if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
-  //     std::cout << "h_output[" << i << "]: " << h_output[i] << " !=
-  //     output_cpu["
-  //               << i << "]: " << output_cpu[i] << std::endl;
-  //   }
-  // }
+  // return 0;
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
+  }
+  // CPU ATTENTION CHECK
+  constexpr float err_tolerance = 1e-2;
+  float *output_cpu = new float[num_heads * seq_len * qkv_dim];
+  naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len, qkv_dim,
+                  num_heads);
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
+  }
+  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+    if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
+      std::cout << "h_output[" << i << "]: " << h_output[i] << " !=
+      output_cpu["
+                << i << "]: " << output_cpu[i] << std::endl;
+    }
+  }
 
   delete[] h_q;
   delete[] h_k;
@@ -305,7 +296,7 @@ int main(int argc, char *argv[]) {
   delete[] float_h_q;
   delete[] float_h_k;
   delete[] float_h_v;
-  // delete[] output_cpu;
+  delete[] output_cpu;
   cudaFree(d_q);
   cudaFree(d_k);
   cudaFree(d_v);
