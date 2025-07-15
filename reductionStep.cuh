@@ -67,18 +67,6 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       output[i * qkv_dim + j] = (curRunningSum / (l_inew + 1e-5f)) *
                                 expf(curMax - fmaxf(curMax, m_ijProposal)) *
                                 output[i * qkv_dim + j];
-      if (laneid == 0) {
-        if (output[i * qkv_dim + j] == 0.0f) {
-          printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j,
-                 output[i * qkv_dim + j]);
-          printf("curRunningSum: %f\n", curRunningSum);
-          printf("l_inew: %f\n", l_inew);
-          printf("curMax: %f\n", curMax);
-          printf("m_ijProposal: %f\n", m_ijProposal);
-          __trap();
-          return;
-        }
-      }
       sumValues[i] = l_inew;
     }
     // cast qkt to half
