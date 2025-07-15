@@ -74,103 +74,104 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       casted_qkt[i] = __float2half(shared_qkt[i]);
     }
     __syncthreads();
-
+  }
+  __syncthreads();
     // handle p_{ij} by v_j multiplication. p_{ij} is in casted_qkt as a b_r x
     // b_c(16x16 tiling). v_j is shared_v as a b_c x qkv_dim (16x8 tiling)
-    int req_x_tiles = ceilf(qkv_dim / TILE_X_SIZE);
-    int req_y_tiles = ceilf(b_r / TILE_Y_SIZE);
-    int req_tiles = req_x_tiles * req_y_tiles;
-    for (int i = warpid; i < req_tiles; i += WARPS_PER_BLOCK) {
-      float rC[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-      int output_u_left[2] = {
-          (i) / req_x_tiles * TILE_Y_SIZE,
-          (i) % req_x_tiles *
-              TILE_X_SIZE}; // split output tile work across warps
-      for (int j = 0; j < (b_c / SHARED_Q_K_DIM); j++) {
-        int p_u_left[2] = {output_u_left[0], j * SHARED_Q_K_DIM};
-        int v_u_left[2] = {j * SHARED_Q_K_DIM, output_u_left[1]};
-        half p_elements[8] = {
-            casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] +
-                       2 * (laneid % 4)],
-            casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] +
-                       2 * (laneid % 4) + 1],
-            casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] +
-                       2 * (laneid % 4)],
-            casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] +
-                       2 * (laneid % 4) + 1],
-            casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] + 8 +
-                       2 * (laneid % 4)],
-            casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] + 8 +
-                       2 * (laneid % 4) + 1],
-            casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] + 8 +
-                       2 * (laneid % 4)],
-            casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] + 8 +
-                       2 * (laneid % 4) + 1]};
-        half v_elements[4] = {
-            shared_v[(v_u_left[0] + 2 * (laneid % 4)) * qkv_dim + v_u_left[1] +
-                     laneid / 4],
-            shared_v[(v_u_left[0] + 2 * (laneid % 4) + 1) * qkv_dim +
-                     v_u_left[1] + laneid / 4],
-            shared_v[(v_u_left[0] + 2 * (laneid % 4) + 8) * qkv_dim +
-                     v_u_left[1] + laneid / 4],
-            shared_v[(v_u_left[0] + 2 * (laneid % 4) + 9) * qkv_dim +
-                     v_u_left[1] + laneid / 4]};
-        unsigned const *p_ptr = reinterpret_cast<unsigned const *>(p_elements);
-        unsigned const *v_ptr = reinterpret_cast<unsigned const *>(v_elements);
-        // use mma instruction
-        __syncwarp();
-        asm volatile(
-            "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
-            "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
-            : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
-            : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]),
-              "r"(v_ptr[0]), "r"(v_ptr[1]), "f"(rC[0]), "f"(rC[1]), "f"(rC[2]),
-              "f"(rC[3]));
-      }
-      intermediatePV[(output_u_left[0] + laneid / 4) * qkv_dim +
-                     output_u_left[1] + 2 * (laneid % 4)] = rC[0];
-      intermediatePV[(output_u_left[0] + laneid / 4) * qkv_dim +
-                     output_u_left[1] + 2 * (laneid % 4) + 1] = rC[1];
-      intermediatePV[(output_u_left[0] + laneid / 4 + 8) * qkv_dim +
-                     output_u_left[1] + 2 * (laneid % 4)] = rC[2];
-      intermediatePV[(output_u_left[0] + laneid / 4 + 8) * qkv_dim +
-                     output_u_left[1] + 2 * (laneid % 4) + 1] = rC[3];
+  int req_x_tiles = ceilf(qkv_dim / TILE_X_SIZE);
+  int req_y_tiles = ceilf(b_r / TILE_Y_SIZE);
+  int req_tiles = req_x_tiles * req_y_tiles;
+  for (int i = warpid; i < req_tiles; i += WARPS_PER_BLOCK) {
+    float rC[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int output_u_left[2] = {
+        (i) / req_x_tiles * TILE_Y_SIZE,
+        (i) % req_x_tiles *
+            TILE_X_SIZE}; // split output tile work across warps
+    for (int j = 0; j < (b_c / SHARED_Q_K_DIM); j++) {
+      int p_u_left[2] = {output_u_left[0], j * SHARED_Q_K_DIM};
+      int v_u_left[2] = {j * SHARED_Q_K_DIM, output_u_left[1]};
+      half p_elements[8] = {
+          casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] +
+                      2 * (laneid % 4)],
+          casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] +
+                      2 * (laneid % 4) + 1],
+          casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] +
+                      2 * (laneid % 4)],
+          casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] +
+                      2 * (laneid % 4) + 1],
+          casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] + 8 +
+                      2 * (laneid % 4)],
+          casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] + 8 +
+                      2 * (laneid % 4) + 1],
+          casted_qkt[(p_u_left[0] + laneid / 4) * b_c + p_u_left[1] + 8 +
+                      2 * (laneid % 4)],
+          casted_qkt[(p_u_left[0] + laneid / 4 + 8) * b_c + p_u_left[1] + 8 +
+                      2 * (laneid % 4) + 1]};
+      half v_elements[4] = {
+          shared_v[(v_u_left[0] + 2 * (laneid % 4)) * qkv_dim + v_u_left[1] +
+                    laneid / 4],
+          shared_v[(v_u_left[0] + 2 * (laneid % 4) + 1) * qkv_dim +
+                    v_u_left[1] + laneid / 4],
+          shared_v[(v_u_left[0] + 2 * (laneid % 4) + 8) * qkv_dim +
+                    v_u_left[1] + laneid / 4],
+          shared_v[(v_u_left[0] + 2 * (laneid % 4) + 9) * qkv_dim +
+                    v_u_left[1] + laneid / 4]};
+      unsigned const *p_ptr = reinterpret_cast<unsigned const *>(p_elements);
+      unsigned const *v_ptr = reinterpret_cast<unsigned const *>(v_elements);
+      // use mma instruction
+      __syncwarp();
+      asm volatile(
+          "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
+          "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
+          : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
+          : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]),
+            "r"(v_ptr[0]), "r"(v_ptr[1]), "f"(rC[0]), "f"(rC[1]), "f"(rC[2]),
+            "f"(rC[3]));
     }
-    if (laneid == 0) {
-      printf("intermediatePV[0]: %f\n", intermediatePV[0]);
-      printf("intermediatePV[1]: %f\n", intermediatePV[1]);
-      printf("intermediatePV[2]: %f\n", intermediatePV[2]);
-      printf("intermediatePV[3]: %f\n", intermediatePV[3]);
-      printf("intermediatePV[4]: %f\n", intermediatePV[4]);
-      printf("intermediatePV[5]: %f\n", intermediatePV[5]);
-      printf("intermediatePV[6]: %f\n", intermediatePV[6]);
-      printf("laneid: %d\n", laneid);
-      printf("warpid: %d\n", warpid);
-      printf("tid: %d\n", tid);
-      printf("b_c: %d\n", b_c);
-    }
-    __syncthreads();
-    // final O_i update
-    for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
-      float coefficient = expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
-      for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
-        output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
-        if (output[i * qkv_dim + j] == 0) {
-          printf("REDUCTOR error encountered!!!!!\n");
-          printf("laneid: %d\n", laneid);
-          printf("warpid: %d\n", warpid);
-          printf("tid: %d\n", tid);
-          printf("b_c: %d\n", b_c);
-          printf("b_r: %d\n", b_r);
-          printf("qkv_dim: %d\n", qkv_dim);
-          printf("qElementsTracked: %d\n", qElementsTracked);
-          printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j, output[i * qkv_dim + j]);
-          printf("coefficient: %f\n", coefficient);
-          printf("intermediateRowMaxes[%d]: %f\n", i, intermediateRowMaxes[i]);
-          __trap();
-          return;
-        }
+    intermediatePV[(output_u_left[0] + laneid / 4) * qkv_dim +
+                    output_u_left[1] + 2 * (laneid % 4)] = rC[0];
+    intermediatePV[(output_u_left[0] + laneid / 4) * qkv_dim +
+                    output_u_left[1] + 2 * (laneid % 4) + 1] = rC[1];
+    intermediatePV[(output_u_left[0] + laneid / 4 + 8) * qkv_dim +
+                    output_u_left[1] + 2 * (laneid % 4)] = rC[2];
+    intermediatePV[(output_u_left[0] + laneid / 4 + 8) * qkv_dim +
+                    output_u_left[1] + 2 * (laneid % 4) + 1] = rC[3];
+  }
+  if (laneid == 0) {
+    printf("intermediatePV[0]: %f\n", intermediatePV[0]);
+    printf("intermediatePV[1]: %f\n", intermediatePV[1]);
+    printf("intermediatePV[2]: %f\n", intermediatePV[2]);
+    printf("intermediatePV[3]: %f\n", intermediatePV[3]);
+    printf("intermediatePV[4]: %f\n", intermediatePV[4]);
+    printf("intermediatePV[5]: %f\n", intermediatePV[5]);
+    printf("intermediatePV[6]: %f\n", intermediatePV[6]);
+    printf("laneid: %d\n", laneid);
+    printf("warpid: %d\n", warpid);
+    printf("tid: %d\n", tid);
+    printf("b_c: %d\n", b_c);
+  }
+  __syncthreads();
+  // final O_i update
+  for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
+    float coefficient = expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
+    for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
+      output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
+      if (output[i * qkv_dim + j] == 0) {
+        printf("REDUCTOR error encountered!!!!!\n");
+        printf("laneid: %d\n", laneid);
+        printf("warpid: %d\n", warpid);
+        printf("tid: %d\n", tid);
+        printf("b_c: %d\n", b_c);
+        printf("b_r: %d\n", b_r);
+        printf("qkv_dim: %d\n", qkv_dim);
+        printf("qElementsTracked: %d\n", qElementsTracked);
+        printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j, output[i * qkv_dim + j]);
+        printf("coefficient: %f\n", coefficient);
+        printf("intermediateRowMaxes[%d]: %f\n", i, intermediateRowMaxes[i]);
+        __trap();
+        return;
       }
     }
   }
 }
+
