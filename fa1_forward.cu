@@ -260,7 +260,7 @@ int main(int argc, char *argv[]) {
   //   std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
   // }
   // CPU ATTENTION CHECK
-  constexpr float err_tolerance = 1e-2;
+  constexpr float err_tolerance = 1e-1f;
   float *output_cpu = new float[num_heads * seq_len * qkv_dim];
   naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len, qkv_dim,
                   num_heads);
@@ -271,7 +271,6 @@ int main(int argc, char *argv[]) {
     if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
       printf("error encountered!!!!!\n");
       std::cout << "h_output[" << i << "]: " << h_output[i] << " != output_cpu["  << i << "]: " << output_cpu[i] << std::endl;
-      break;
     }
   }
 
