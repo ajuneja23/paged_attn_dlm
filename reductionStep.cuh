@@ -151,18 +151,15 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     __syncthreads();
     // final O_i update
     for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
-      float coefficient =
-          expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
+      float coefficient = expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
       for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
-        output[i * qkv_dim + j] +=
-            coefficient * intermediatePV[i * qkv_dim + j];
+        output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
         if (laneid == 0) {
           if (output[i * qkv_dim + j] == 0.0f) {
-            printf("error encountered!!!!!\n")
+            printf("error encountered!!!!!\n");
             printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j, output[i * qkv_dim + j]);
             printf("coefficient: %f\n", coefficient);
-            printf("intermediateRowMaxes[%d]: %f\n", i,
-                   intermediateRowMaxes[i]);
+            printf("intermediateRowMaxes[%d]: %f\n", i, intermediateRowMaxes[i]);
           }
           __trap();
           return;
