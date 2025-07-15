@@ -156,21 +156,21 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     float coefficient = expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
     for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
       output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
-      if (output[i * qkv_dim + j] == 0) {
-        printf("REDUCTOR error encountered!!!!!\n");
-        printf("laneid: %d\n", laneid);
-        printf("warpid: %d\n", warpid);
-        printf("tid: %d\n", tid);
-        printf("b_c: %d\n", b_c);
-        printf("b_r: %d\n", b_r);
-        printf("qkv_dim: %d\n", qkv_dim);
-        printf("qElementsTracked: %d\n", qElementsTracked);
-        printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j, output[i * qkv_dim + j]);
-        printf("coefficient: %f\n", coefficient);
-        printf("intermediateRowMaxes[%d]: %f\n", i, intermediateRowMaxes[i]);
-        __trap();
-        return;
-      }
+      // if (output[i * qkv_dim + j] == 0) {
+      //   printf("REDUCTOR error encountered!!!!!\n");
+      //   printf("laneid: %d\n", laneid);
+      //   printf("warpid: %d\n", warpid);
+      //   printf("tid: %d\n", tid);
+      //   printf("b_c: %d\n", b_c);
+      //   printf("b_r: %d\n", b_r);
+      //   printf("qkv_dim: %d\n", qkv_dim);
+      //   printf("qElementsTracked: %d\n", qElementsTracked);
+      //   printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j, output[i * qkv_dim + j]);
+      //   printf("coefficient: %f\n", coefficient);
+      //   printf("intermediateRowMaxes[%d]: %f\n", i, intermediateRowMaxes[i]);
+      //   __trap();
+      //   return;
+      // }
     }
   }
 }
