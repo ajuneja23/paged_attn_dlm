@@ -261,9 +261,9 @@ int main(int argc, char *argv[]) {
              cudaMemcpyDeviceToHost);
   std::cout << "copied result to host!" << std::endl;
   // return 0;
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
-  }
+  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+  //   std::cout << "h_output[" << i << "]: " << h_output[i] << std::endl;
+  // }
   // CPU ATTENTION CHECK
   constexpr float err_tolerance = 1e-2;
   float *output_cpu = new float[num_heads * seq_len * qkv_dim];
