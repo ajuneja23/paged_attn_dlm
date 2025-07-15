@@ -106,11 +106,6 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
           }
         }
         // collaborate on O block loading
-        if (tid == 0) {
-          printf("shared_qkt[0]: %f\n", shared_qkt[0]);
-          printf("shared_maxValues[0]: %f\n", shared_maxValues[0]);
-          printf("shared_sumValues[0]: %f\n", shared_sumValues[0]);
-        }
         for (int z = tid; z < qElementsTracked * qkv_dim;
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
           shared_output[z] = output[head_prefix + i * b_r * qkv_dim + z];

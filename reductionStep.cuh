@@ -60,7 +60,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
                    expf(m_ijProposal - fmaxf(curMax, m_ijProposal)) *
                        runningSum; // l_i^{new}
     if (laneid == 0) {
-      intermediateRowMaxes[i] = m_ijProposal;
+      intermediateRowMaxes[i] = m_ijProposal;//store m_{ij} 
     }
     // update O_i
     for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
@@ -93,7 +93,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     int req_y_tiles = ceilf(b_r / TILE_Y_SIZE);
     int req_tiles = req_x_tiles * req_y_tiles;
     for (int i = warpid; i < req_tiles; i += WARPS_PER_BLOCK) {
-      float rC[4] = {0, 0, 0, 0};
+      float rC[4] = {0.0f, 0.0f, 0.0f, 0.0f};
       int output_u_left[2] = {
           (i) / req_x_tiles * TILE_Y_SIZE,
           (i) % req_x_tiles *
@@ -148,13 +148,25 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       intermediatePV[(output_u_left[0] + laneid / 4 + 8) * qkv_dim +
                      output_u_left[1] + 2 * (laneid % 4) + 1] = rC[3];
     }
+    if (laneid == 0) {
+      printf("rC[0]: %f\n", rC[0]);
+      printf("rC[1]: %f\n", rC[1]);
+      printf("rC[2]: %f\n", rC[2]); 
+      printf("rC[3]: %f\n", rC[3]);
+      printf("output_u_left[0]: %d\n", output_u_left[0]);
+      printf("output_u_left[1]: %d\n", output_u_left[1]);
+      printf("laneid: %d\n", laneid);
+      printf("warpid: %d\n", warpid);
+      printf("tid: %d\n", tid);
+      printf("b_c: %d\n", b_c);
+    }
     __syncthreads();
     // final O_i update
     for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
       float coefficient = expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
       for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
         output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
-        if (output[i * qkv_dim + j] == 0.0f) {
+        if (output[i * qkv_dim + j] == 0) {
           printf("REDUCTOR error encountered!!!!!\n");
           printf("laneid: %d\n", laneid);
           printf("warpid: %d\n", warpid);
