@@ -158,6 +158,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
             coefficient * intermediatePV[i * qkv_dim + j];
         if (laneid == 0) {
           if (output[i * qkv_dim + j] == 0.0f) {
+            printf("error encountered!!!!!\n")
             printf("output[%d * %d + %d] = %f\n", i, qkv_dim, j,
                    output[i * qkv_dim + j]);
             printf("coefficient: %f\n", coefficient);

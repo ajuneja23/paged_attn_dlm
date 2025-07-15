@@ -121,13 +121,6 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
             shared_output, shared_intermediateRowMaxes, shared_intermediatePV,
             shared_casted_qkt, warpid, laneid, tid, b_c, b_r, kElementsTracked,
             qElementsTracked);
-        if (tid == 0) {
-          printf("shared_output[0]: %f\n", shared_output[0]);
-          printf("shared_intermediateRowMaxes[0]: %f\n",
-                 shared_intermediateRowMaxes[0]);
-          printf("shared_intermediatePV[0]: %f\n", shared_intermediatePV[0]);
-          printf("shared_casted_qkt[0]: %f\n", shared_casted_qkt[0]);
-        }
         __syncthreads();
         // write output to DRAM
         if (warpid < WARPS_PER_BLOCK / 2) {
@@ -276,11 +269,13 @@ int main(int argc, char *argv[]) {
   float *output_cpu = new float[num_heads * seq_len * qkv_dim];
   naive_attention(float_h_q, float_h_k, float_h_v, output_cpu, seq_len, qkv_dim,
                   num_heads);
-  for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
-    std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
-  }
+  // for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
+  //   std::cout << "output_cpu[" << i << "]: " << output_cpu[i] << std::endl;
+  // }
   for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
     if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
+      printf("error encountered!!!!!\n");
+      break;
       std::cout << "h_output[" << i << "]: " << h_output[i] << " != output_cpu["  << i << "]: " << output_cpu[i] << std::endl;
     }
   }
