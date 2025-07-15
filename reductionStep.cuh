@@ -149,12 +149,13 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
                      output_u_left[1] + 2 * (laneid % 4) + 1] = rC[3];
     }
     if (laneid == 0) {
-      printf("rC[0]: %f\n", rC[0]);
-      printf("rC[1]: %f\n", rC[1]);
-      printf("rC[2]: %f\n", rC[2]); 
-      printf("rC[3]: %f\n", rC[3]);
-      printf("output_u_left[0]: %d\n", output_u_left[0]);
-      printf("output_u_left[1]: %d\n", output_u_left[1]);
+      printf("intermediatePV[0]: %f\n", intermediatePV[0]);
+      printf("intermediatePV[1]: %f\n", intermediatePV[1]);
+      printf("intermediatePV[2]: %f\n", intermediatePV[2]);
+      printf("intermediatePV[3]: %f\n", intermediatePV[3]);
+      printf("intermediatePV[4]: %f\n", intermediatePV[4]);
+      printf("intermediatePV[5]: %f\n", intermediatePV[5]);
+      printf("intermediatePV[6]: %f\n", intermediatePV[6]);
       printf("laneid: %d\n", laneid);
       printf("warpid: %d\n", warpid);
       printf("tid: %d\n", tid);
