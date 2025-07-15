@@ -275,8 +275,8 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < num_heads * seq_len * qkv_dim; ++i) {
     if (abs(h_output[i] - output_cpu[i]) > err_tolerance) {
       printf("error encountered!!!!!\n");
-      break;
       std::cout << "h_output[" << i << "]: " << h_output[i] << " != output_cpu["  << i << "]: " << output_cpu[i] << std::endl;
+      break;
     }
   }
 
