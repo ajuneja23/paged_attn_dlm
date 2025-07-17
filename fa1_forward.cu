@@ -7,8 +7,8 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         float *output, int seq_len, int b_c, int b_r,
         int *sizePrefixes) { // q layout is (qkv_dim,seq_len,num_heads):
                              // (1, qkv_dim,qkv_dim*seq_len). same for k,v
-  int tid = threadIdx.y * blockDim.x + threadIdx.x;
-  int bid = blockIdx.y * gridDim.x + blockIdx.x;
+  int tid = threadIdx.x+blockIdx.x*blockDim.x;
+  int bid = blockIdx.x;
 
   // shared_q[b_r][qkv_dim];
   // shared_k[b_c][qkv_dim];
@@ -203,8 +203,8 @@ int main(int argc, char *argv[]) {
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_output, h_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyHostToDevice);
-  dim3 threadsPerBlock(8, 16);
-  dim3 numBlocks(1, 1);
+  dim3 threadsPerBlock(128);
+  dim3 numBlocks(8);//one for each head
   // calc shmem size
   shared_mem_requirements<__half> halfshmem_req[4] = {
       {.dims = {b_r, qkv_dim}}, // q
