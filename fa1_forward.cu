@@ -1,3 +1,5 @@
+//https://github.com/ajuneja23/paged_attn_dlm.git
+
 #include "fa1_forward.cuh"
 #include <iostream>
 // parallelize on heads first
@@ -62,18 +64,19 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
         if (j == t_c - 1 && z >= trueElementsToLoad) {
           shared_k[z] = 0;
           shared_v[z] = 0;
-          continue;
         }
-        shared_k[z] = k[head_prefix + seq_prefix + z]; // LOAD SHARED K,V
-        shared_v[z] = v[head_prefix + seq_prefix + z];
+        else {
+          shared_k[z] = k[head_prefix + seq_prefix + z]; // LOAD SHARED K,V
+          shared_v[z] = v[head_prefix + seq_prefix + z];
+        }
       }
       __syncthreads();
       for (int i = 0; i < t_r; i++) {
-        int trueElementsToLoad = -1;
+        trueElementsToLoad = -1;
         int qElementsTracked = b_r;
         if (i == t_r - 1) {
           qElementsTracked = seq_len - i * b_r;
-          trueElementsToLoad = seq_len * qkv_dim - i * b_r * qkv_dim;
+          trueElementsToLoad = qElementsTracked*qkv_dim;
         }
         int q_prefix = i * b_r * qkv_dim;
         int elementsToLoad = b_r * qkv_dim;
@@ -81,9 +84,10 @@ fa1_fwd(half *q, half *k, half *v, float *maxValues, float *sumValues,
              z += (WARP_SIZE * WARPS_PER_BLOCK)) {
           if (i == t_r - 1 && z >= trueElementsToLoad) {
             shared_q[z] = 0;
-            continue;
           }
-          shared_q[z] = q[head_prefix + q_prefix + z];
+          else {
+            shared_q[z] = q[head_prefix + q_prefix + z];
+          }
         }
 
         // load in maxValues, sumValues
@@ -148,7 +152,7 @@ int main(int argc, char *argv[]) {
   int seq_len = std::stoi(argv[1]);
   std::cout << "sequence length: " << seq_len << std::endl;
   constexpr int qkv_dim = 64;
-  constexpr int num_heads = 8;
+  constexpr int num_heads = 1;
   __half *d_q;
   __half *d_k;
   __half *d_v;
@@ -204,7 +208,7 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(d_output, h_output, num_heads * seq_len * qkv_dim * sizeof(float),
              cudaMemcpyHostToDevice);
   dim3 threadsPerBlock(128);
-  dim3 numBlocks(8);//one for each head
+  dim3 numBlocks(1);//one for each head
   // calc shmem size
   shared_mem_requirements<__half> halfshmem_req[4] = {
       {.dims = {b_r, qkv_dim}}, // q
