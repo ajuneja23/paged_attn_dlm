@@ -2,7 +2,7 @@
 
 Relevant Papers: [LlaDA](https://arxiv.org/abs/2502.09992), [dKV Cache](https://arxiv.org/abs/2505.15781), [PagedAttention](https://arxiv.org/abs/2309.06180), [FlashAttention](https://arxiv.org/abs/2205.14135)
 
-This project aims to provide an implementation of LLaDA, a modern diffusion language model with multiple modern inference optimization techniques. dKV Cache first introduced the scheme of caching the keys and values of unmasked tokens in diffusion language models. PagedAttention introduced methods to reduce memory fragmentation driven by bloated KV cache sizes. FlashAttention introduced fast fused attention kernels. With these techniques combined, I am interested to see how quick DLM inference can get.
+This project aims to provide an implementation of LLaDA, a modern diffusion language model with multiple modern inference optimization techniques. dKV Cache first introduced the scheme of caching the keys and values of unmasked tokens in diffusion language models. PagedAttention introduced chunking methods for the KV cache to improve memory efficiency. FlashAttention introduced fused attention kernels to reduce the required communication between SMs and DRAM. With these techniques combined, I am interested to see how quick DLM inference can get.
 
 ## Progress
 
