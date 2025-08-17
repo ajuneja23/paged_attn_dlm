@@ -16,12 +16,33 @@ include_directories(${CUDAToolkit_ROOT}/include)
 
 link_directories(${CUDAToolkit_ROOT}/lib64)
 
-add_executable(fa1_forward fa1_forward.cu naive_attention.cpp )
-target_link_libraries(fa1_forward CUDA::cudart)
+
+option (BUILD_MAIN "build main tester executable" ON) 
+option (BUILD_NAIVE_QKT "build naive qkt tester executable" OFF)
+option(BUILD_REDUCTION_STEP "build reduction step tester executable" OFF)
+
+
+if (BUILD_MAIN)#full test
+    add_executable(fa1_forward fa1_forward/fa1_forward.cu fa1_forward/naive_attention.cpp)
+    target_link_libraries(fa1_forward CUDA::cudart)
+    include_directories(qktStep)
+    include_directories(reductionStep)
+    set_property(TARGET fa1_forward PROPERTY CXX_STANDARD 17)
+endif (BUILD_MAIN)
+
+if (BUILD_NAIVE_QKT)#just test the qkt
+    add_executable(qkt_runner qktStep/qkt_runner.cu qktStep/naive_qkt.cpp) 
+    target_link_libraries(qkt_runner CUDA::cudart)
+    include_directories(qktStep) 
+    set_property(TARGET qkt_runner PROPERTY CXX_STANDARD 17)
+endif (BUILD_NAIVE_QKT)
+
+if (BUILD_REDUCTION_STEP) 
+    //TODO
+endif (BUILD_REDUCTION_STEP)
 
 
 
-set_property(TARGET fa1_forward PROPERTY CXX_STANDARD 17)
 
 # Force override any remaining problematic flags
 if(APPLE)
