@@ -1,8 +1,6 @@
 #!/bin/bash
 apt-get update
 apt-get install cmake -y
-mkdir build
-mv builder.sh build/
-sh build/builder.sh
-cd build
+cmake .
+cmake --build . --config release
 ./fa1forward 256

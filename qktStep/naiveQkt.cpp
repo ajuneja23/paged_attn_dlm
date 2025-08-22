@@ -2,7 +2,7 @@
 
 //q is b_r x qkv_dim, k is b_c x qkv_dim, qkt is b_r x b_c 
 
-#include "naive_qkt.h"
+#include "naiveQkt.h"
 
 
 template <int qkv_dim>

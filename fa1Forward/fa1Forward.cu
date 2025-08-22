@@ -1,6 +1,6 @@
 //https://github.com/ajuneja23/paged_attn_dlm.git
 
-#include "fa1_forward.cuh"
+#include "fa1Forward.cuh"
 #include <iostream>
 // parallelize on heads first
 template <int qkv_dim, int num_heads>

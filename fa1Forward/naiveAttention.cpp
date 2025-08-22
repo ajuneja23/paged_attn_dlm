@@ -1,8 +1,10 @@
 #include <cmath>
-#include <fstream>
-#include <iostream>
+
+
 #include <limits>
 
+
+#include "naiveAttention.h"
 using namespace std;
 
 void naive_attention(float *q, float *key, float *v, float *output, int seq_len,

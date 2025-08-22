@@ -1,5 +1,2 @@
 .*
-build/*
-
 !.gitignore
-!build/builder.sh

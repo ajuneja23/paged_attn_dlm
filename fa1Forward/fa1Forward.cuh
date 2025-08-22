@@ -14,8 +14,8 @@
 // using ampere m16n8k16 mma...new ports for hopper soon
 #define WARPS_PER_BLOCK 4
 #define WARP_SIZE 32
-#include "naive_attention.h"
-#include "qkt_computation.cuh"
+#include "naiveAttention.h"
+#include "QktComputation.cuh"
 #include "reductionStep.cuh"
 
 template <typename T> struct shared_mem_requirements {

@@ -1,4 +1,4 @@
-#include "qkt_runner.cuh"
+#include "qktRunner.cuh"
 
 template <int qkv_dim>
 __global__ void qkt_kernel_wrapper(half* q, half* k, half* qkt, int b_r, int b_c) {

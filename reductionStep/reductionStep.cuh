@@ -45,7 +45,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
       if (j >= kElementsTracked) {
         shared_qkt[i * b_c + j] = -INFINITY;
       }
-      shared_qkt[i * b_c + j] = expf(shared_qkt[i * b_c + j]);
+      shared_qkt[i * b_c + j] = expf(shared_qkt[i * b_c + j]);//p_ij calculation inplace of shared_qkt
       runningSum += shared_qkt[i * b_c + j];
     }
     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {

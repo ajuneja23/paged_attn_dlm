@@ -5,8 +5,8 @@
 #include <cuda_runtime_api.h>
 
 
-#include "qkt_computation.cuh"
-#include "naive_qkt.h" 
+#include "qktComputation.cuh"
+#include "naiveQkt.h" 
 #define WARP_SIZE 32
 
 
