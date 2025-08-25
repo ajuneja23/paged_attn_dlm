@@ -1,5 +1,5 @@
 #!/bin/bash
 apt-get update
 apt-get install cmake -y
-cmake BUILD_NAIVE_QKT --build .
+cmake BUILD_NAIVE_QKT .
 ./fa1forward 256
