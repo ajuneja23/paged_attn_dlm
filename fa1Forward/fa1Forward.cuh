@@ -15,7 +15,7 @@
 #define WARPS_PER_BLOCK 4
 #define WARP_SIZE 32
 #include "naiveAttention.h"
-#include "QktComputation.cuh"
+#include "qktComputation.cuh"
 #include "reductionStep.cuh"
 
 template <typename T> struct shared_mem_requirements {
