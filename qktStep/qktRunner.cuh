@@ -17,7 +17,7 @@
 
 
 template <int qkv_dim>
-__global__ void qkt_kernel_wrapper(half* q, half* k, half* qkt, int b_r, int b_c);
+__global__ void qkt_kernel_wrapper(__half* q, __half* k, __half* qkt, int b_r, int b_c);
 
 
 
