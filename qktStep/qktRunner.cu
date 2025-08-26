@@ -2,7 +2,7 @@
 
 
 template <int qkv_dim>
-__global__ void qkt_kernel_wrapper(__half* q, __half* k, __half* qkt, int b_r, int b_c) {
+__global__ void qkt_kernel_wrapper(__half* q, __half* k, float* qkt, int b_r, int b_c) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int warp_id = tid / WARP_SIZE;
     int lane_id = tid % WARP_SIZE;
@@ -17,26 +17,30 @@ int main(int argc, char *argv[]) {
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dis(0.0f, 1.0f);
   __half *h_q = new __half[b_r * qkv_dim];
+  float *cpu_q = new float[b_r * qkv_dim];
+  float *cpu_k = new float[b_c * qkv_dim];
   __half *h_k = new __half[b_c * qkv_dim];
-  __half *h_qkt = new __half[b_r * b_c];
+  float *h_qkt = new float[b_r * b_c];
   for (int i = 0; i < b_r * qkv_dim; i++) {
-    h_q[i] = __float2half(dis(gen));
+    cpu_q[i] = dis(gen);
+    h_q[i] = __float2half(cpu_q[i]);
   }
   for (int i = 0; i < b_c * qkv_dim; i++) {
-    h_k[i] = __float2half(dis(gen));
+    cpu_k[i] = dis(gen);
+    h_k[i] = __float2half(cpu_k[i]);
   }
   for (int i = 0; i < b_r * b_c; i++) {
-    h_qkt[i] = __float2half(0.0f);
+    h_qkt[i] = 0.0f;
   }
   __half *d_q;
   __half *d_k;
-  __half *d_qkt;
+  float *d_qkt;
   cudaMalloc(&d_q, b_r * qkv_dim * sizeof(__half));
   cudaMalloc(&d_k, b_c * qkv_dim * sizeof(__half));
-  cudaMalloc(&d_qkt, b_r * b_c * sizeof(__half));
+  cudaMalloc(&d_qkt, b_r * b_c * sizeof(float));
   cudaMemcpy(d_q, h_q, b_r * qkv_dim * sizeof(__half), cudaMemcpyHostToDevice);
   cudaMemcpy(d_k, h_k, b_c * qkv_dim * sizeof(__half), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_qkt, h_qkt, b_r * b_c * sizeof(__half), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_qkt, h_qkt, b_r * b_c * sizeof(float), cudaMemcpyHostToDevice);
   dim3 numBlocks(1);
   dim3 threadsPerBlock(WARP_SIZE * 4);
   float *qkt = new float[b_r * b_c];
@@ -49,7 +53,8 @@ int main(int argc, char *argv[]) {
     }
   }
   // CPU TEST
-  float cpu_qkt[b_r * b_c];
+  float *cpu_qkt = new float[b_r * b_c];
+  naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
   float allowedError = 1e-1;
   for (int i = 0; i < b_r; i++) {
     for (int j = 0; j < b_c; j++) {
