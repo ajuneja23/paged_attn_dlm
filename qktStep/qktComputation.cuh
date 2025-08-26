@@ -90,4 +90,5 @@ __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
     shared_qkt[(output_tile_uleft[0] + laneid / 4 + 8) * b_c +
                output_tile_uleft[1] + 2 * (laneid % 4) + 1] = rC[3];
   }
+  shared_qkt[b_r * b_c - 1] = 1.2f; //debug
 }
