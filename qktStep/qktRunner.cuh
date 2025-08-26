@@ -4,6 +4,9 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include <iostream>
+#include <cmath>
+#include <mma.h>
+#include <random>
 
 
 #include "qktComputation.cuh"
