@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < b_r; i++) {
     for (int j = 0; j < b_c; j++) {
       qkt[i * b_c + j] = __half2float(h_qkt[i * b_c + j]);
-    }
+
   }
   // CPU TEST
   float *cpu_qkt = new float[b_r * b_c];

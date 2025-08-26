@@ -31,14 +31,14 @@ if (BUILD_MAIN)#full test
 endif (BUILD_MAIN)
 
 if (BUILD_NAIVE_QKT)#just test the qkt
-    add_executable(qktRunner qktStep/qktRunner.cu qktStep/naiveQkt.cpp) 
+    add_executable(qktRunner qktStep/qktRunner.cu) 
     target_link_libraries(qktRunner CUDA::cudart)
     include_directories(qktStep) 
     set_property(TARGET qktRunner PROPERTY CXX_STANDARD 17)
 endif (BUILD_NAIVE_QKT)
 
 if (BUILD_REDUCTION_STEP)
-    add_executable(reductionStepRunner reductionStep/reductionStepRunner.cu reductionStep/reductionStep.cu reductionStep/naiveReduction.cpp)
+    add_executable(reductionStepRunner reductionStep/reductionStepRunner.cu reductionStep/reductionStep.cu)
     target_link_libraries(reductionStepRunner CUDA::cudart)
     include_directories(reductionStep)
     set_property(TARGET reductionStepRunner PROPERTY CXX_STANDARD 17)
