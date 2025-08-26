@@ -1,11 +1,12 @@
 #include "qktRunner.cuh"
 
+
 template <int qkv_dim>
 __global__ void qkt_kernel_wrapper(__half* q, __half* k, __half* qkt, int b_r, int b_c) {
-    int tid = threadIdx.x+blockIdx.x*blockDim.x;  
-    int warp_id=tid/WARP_SIZE;
-    int lane_id=tid%WARP_SIZE;
-    calcQKT<qkv_dim>(q,k,qkt,lane_id,warp_id,b_c,b_r);
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int warp_id = tid / WARP_SIZE;
+    int lane_id = tid % WARP_SIZE;
+    calcQKT<qkv_dim>(q, k, qkt, lane_id, warp_id, b_c, b_r);
 }
 
 
@@ -39,7 +40,7 @@ int main(int argc, char *argv[]) {
   dim3 numBlocks(1);
   dim3 threadsPerBlock(WARP_SIZE * 4);
   float *qkt = new float[b_r * b_c];
-  qkt_kernel_wrapper<<<numBlocks, threadsPerBlock>>>(d_q, d_k, d_qkt, b_r, b_c);
+  qkt_kernel_wrapper<qkv_dim><<<numBlocks, threadsPerBlock>>>(d_q, d_k, d_qkt, b_r, b_c);
   cudaDeviceSynchronize();
   cudaMemcpy(h_qkt, d_qkt, b_r * b_c * sizeof(__half), cudaMemcpyDeviceToHost);
   for (int i = 0; i < b_r; i++) {
