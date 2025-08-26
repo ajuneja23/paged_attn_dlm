@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
   float *cpu_qkt = new float[b_r * b_c];
   naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
   float allowedError = 1e-1;
+  std::cout << "last element from GPU qkt: " << qkt[b_r * b_c - 1] << std::endl;
 //   for (int i = 0; i < b_r; i++) {
 //     for (int j = 0; j < b_c; j++) {
 //       float diff = fabs(qkt[i * b_c + j] - cpu_qkt[i * b_c + j]);
