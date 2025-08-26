@@ -44,28 +44,21 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(d_qkt, h_qkt, b_r * b_c * sizeof(float), cudaMemcpyHostToDevice);
   dim3 numBlocks(1);
   dim3 threadsPerBlock(WARP_SIZE * 4);
-  float *qkt = new float[b_r * b_c];
+
   qkt_kernel_wrapper<qkv_dim><<<numBlocks, threadsPerBlock>>>(d_q, d_k, d_qkt, b_r, b_c);
   cudaDeviceSynchronize();
-  cudaMemcpy(h_qkt, d_qkt, b_r * b_c * sizeof(__half), cudaMemcpyDeviceToHost);
-  for (int i = 0; i < b_r; i++) {
-    for (int j = 0; j < b_c; j++) {
-      
-      qkt[i * b_c + j] = __half2float(h_qkt[i * b_c + j]);
-    }
-  }
+  cudaMemcpy(h_qkt, d_qkt, b_r * b_c * sizeof(float), cudaMemcpyDeviceToHost);
   // CPU TEST
   float *cpu_qkt = new float[b_r * b_c];
   naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
   float allowedError = 1e-1;
   std::cout << "last element from gpu qkt uncasted: " << h_qkt[b_r * b_c - 1] << std::endl;
-  std::cout << "last element from GPU qkt: " << qkt[b_r * b_c - 1] << std::endl;
 //   for (int i = 0; i < b_r; i++) {
 //     for (int j = 0; j < b_c; j++) {
-//       float diff = fabs(qkt[i * b_c + j] - cpu_qkt[i * b_c + j]);
+//       float diff = fabs(h_qkt[i * b_c + j] - cpu_qkt[i * b_c + j]);
 //       if (diff > allowedError) {
 //         std::cout << "Error at (" << i << "," << j << ")" << std::endl;
-//         std::cout << "Device value: " << qkt[i * b_c + j] << std::endl;
+//         std::cout << "Device value: " << h_qkt[i * b_c + j] << std::endl;
 //         std::cout << "CPU value: " << cpu_qkt[i * b_c + j] << std::endl;
 //         std::cout << "Difference: " << diff << std::endl;
 //       }
