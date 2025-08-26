@@ -13,32 +13,19 @@ int main(int argc, char* argv[]) {
     constexpr int qkv_dim = 64;
     constexpr int b_r=32; 
     constexpr int b_c=32;
-
-   float* q=new float[b_r*qkv_dim];
-   float* k=new float[b_c*qkv_dim];
-   float* qkt=new float[b_r*b_c];
    std::mt19937 gen(42);
    std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-   for (int i=0;i<b_r*qkv_dim;i++) {
-    q[i]=dis(gen);
-   }
-   for (int i=0;i<b_c*qkv_dim;i++) {
-    k[i]=dis(gen);
-   }
-   for (int i=0;i<b_r*b_c;i++) {
-    qkt[i]=0.0f;
-   }
    __half* h_q=new __half[b_r*qkv_dim];
    __half* h_k=new __half[b_c*qkv_dim];
    __half* h_qkt=new __half[b_r*b_c];
    for (int i=0;i<b_r*qkv_dim;i++) {
-    h_q[i]=__float2half(q[i]);
+    h_q[i]=__float2half(dis(gen));
    }
    for (int i=0;i<b_c*qkv_dim;i++) {
-    h_k[i]=__float2half(k[i]);
+    h_k[i]=__float2half(dis(gen));
    }
    for (int i=0;i<b_r*b_c;i++) {
-    h_qkt[i]=__float2half(qkt[i]);
+    h_qkt[i]=__float2half(0.0f);
    }
    __half* d_q;
    __half* d_k;

@@ -6,6 +6,7 @@
 #include <cuda_runtime_api.h>
 #include <mma.h>
 #include <random>
+#include <iostream>
 
 
 #include "naiveReduction.h"
