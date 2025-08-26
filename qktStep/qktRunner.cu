@@ -7,7 +7,6 @@ __global__ void qkt_kernel_wrapper(__half* q, __half* k, float* qkt, int b_r, in
     int warp_id = tid / WARP_SIZE;
     int lane_id = tid % WARP_SIZE;
     calcQKT<qkv_dim>(q, k, qkt, lane_id, warp_id, b_c, b_r);
-    printf("Debug: qkt last element %f\n", qkt[b_r * b_c - 1]);
 }
 
 
@@ -52,17 +51,16 @@ int main(int argc, char *argv[]) {
   float *cpu_qkt = new float[b_r * b_c];
   naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
   float allowedError = 1e-1;
-  std::cout << "last element from gpu qkt uncasted: " << h_qkt[b_r * b_c - 1] << std::endl;
-//   for (int i = 0; i < b_r; i++) {
-//     for (int j = 0; j < b_c; j++) {
-//       float diff = fabs(h_qkt[i * b_c + j] - cpu_qkt[i * b_c + j]);
-//       if (diff > allowedError) {
-//         std::cout << "Error at (" << i << "," << j << ")" << std::endl;
-//         std::cout << "Device value: " << h_qkt[i * b_c + j] << std::endl;
-//         std::cout << "CPU value: " << cpu_qkt[i * b_c + j] << std::endl;
-//         std::cout << "Difference: " << diff << std::endl;
-//       }
-//     }
-//   }
+  for (int i = 0; i < b_r; i++) {
+    for (int j = 0; j < b_c; j++) {
+      float diff = fabs(h_qkt[i * b_c + j] - cpu_qkt[i * b_c + j]);
+      if (diff > allowedError) {
+        std::cout << "Error at (" << i << "," << j << ")" << std::endl;
+        std::cout << "Device value: " << h_qkt[i * b_c + j] << std::endl;
+        std::cout << "CPU value: " << cpu_qkt[i * b_c + j] << std::endl;
+        std::cout << "Difference: " << diff << std::endl;
+      }
+    }
+  }
   return 0;
 }
