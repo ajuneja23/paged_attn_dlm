@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
   float *cpu_qkt = new float[b_r * b_c];
   naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
   float allowedError = 1e-1;
+  int numErrs = 0;
   for (int i = 0; i < b_r; i++) {
     for (int j = 0; j < b_c; j++) {
       float diff = fabs(h_qkt[i * b_c + j] - cpu_qkt[i * b_c + j]);
@@ -59,8 +60,10 @@ int main(int argc, char *argv[]) {
         std::cout << "Device value: " << h_qkt[i * b_c + j] << std::endl;
         std::cout << "CPU value: " << cpu_qkt[i * b_c + j] << std::endl;
         std::cout << "Difference: " << diff << std::endl;
+        numErrs++;
       }
     }
   }
+  std::cout << "Number of errors: " << numErrs << std::endl;
   return 0;
 }
