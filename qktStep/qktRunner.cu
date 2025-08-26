@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
   cudaMemcpy(h_qkt, d_qkt, b_r * b_c * sizeof(__half), cudaMemcpyDeviceToHost);
   for (int i = 0; i < b_r; i++) {
     for (int j = 0; j < b_c; j++) {
+      
       qkt[i * b_c + j] = __half2float(h_qkt[i * b_c + j]);
     }
   }
@@ -57,6 +58,7 @@ int main(int argc, char *argv[]) {
   float *cpu_qkt = new float[b_r * b_c];
   naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
   float allowedError = 1e-1;
+  std::cout << "last element from gpu qkt uncasted: " << h_qkt[b_r * b_c - 1] << std::endl;
   std::cout << "last element from GPU qkt: " << qkt[b_r * b_c - 1] << std::endl;
 //   for (int i = 0; i < b_r; i++) {
 //     for (int j = 0; j < b_c; j++) {
