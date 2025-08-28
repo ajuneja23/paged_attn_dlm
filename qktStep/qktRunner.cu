@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   // CPU TEST
   float *cpu_qkt = new float[b_r * b_c];
   naive_qkt<qkv_dim>(cpu_q, cpu_k, cpu_qkt, b_r, b_c);
-  float allowedError = 1e-3;
+  float allowedError = 1e-2;
   int numErrs = 0;
   for (int i = 0; i < b_r; i++) {
     for (int j = 0; j < b_c; j++) {

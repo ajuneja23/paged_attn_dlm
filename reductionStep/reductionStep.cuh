@@ -14,6 +14,54 @@
 #define WARPS_PER_BLOCK 4
 #define WARP_SIZE 32
 
+
+
+template <int qkv_dim> //(b_r,b_c) x (b_c,qkv_dim) = (b_r,qkv_dim)
+__device__ void calcPVSubroutine(__half *p, __half *v, float *output, int laneid,
+                       int warpid, int b_r, int b_c, int *p_uleft, int *v_uleft, int *output_uleft, float* rC) {
+  __half *p_elements = new __half[8];
+  __half *v_elements = new __half[4];
+  int p_entryCoords[8][2] = {
+    {p_uleft[0] + laneid / 4, p_uleft[1] + 2 * (laneid % 4)},
+    {p_uleft[0] + laneid / 4, p_uleft[1] + 1 + 2 * (laneid % 4)},
+    {p_uleft[0] + laneid / 4, p_uleft[1] + 8 + 2 * (laneid % 4)},
+    {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 9 + 2 * (laneid % 4)},
+    {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 2 * (laneid % 4)},
+    {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 1 + 2 * (laneid % 4)},
+    {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 8 + 2 * (laneid % 4)},
+    {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 9 + 2 * (laneid % 4)},
+  };
+  for (int i = 0; i < 8; i++) {
+    p_elements[i] = p_entryCoords[i][0] * b_c + p_entryCoords[i][1];
+  }
+  int v_entryCoords[4][2] = {
+      {v_uleft[0] + 2 * (laneid % 4), v_uleft[1] + laneid / 4},
+      {v_uleft[0] + 1 + 2 * (laneid % 4), v_uleft[1] + laneid / 4},
+      {v_uleft[0] + 8 + 2 * (laneid % 4), v_uleft[1] + laneid / 4},
+      {v_uleft[0] + 9 + 2 * (laneid % 4), v_uleft[1] + laneid / 4},
+  };
+  for (int i = 0; i < 4; i++) {
+    v_elements[i] = v_entryCoords[i][0] * qkv_dim + v_entryCoords[i][1];
+  }
+  unsigned const *p_ptr = reinterpret_cast<unsigned const *>(p_elements);
+  unsigned const *v_ptr = reinterpret_cast<unsigned const *>(v_elements);
+  // use mma instruction
+  __syncwarp();
+  asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
+               "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};\n"
+               : "=f"(rC[0]), "=f"(rC[1]), "=f"(rC[2]), "=f"(rC[3])
+               : "r"(p_ptr[0]), "r"(p_ptr[1]), "r"(p_ptr[2]), "r"(p_ptr[3]),
+                 "r"(v_ptr[0]), "r"(v_ptr[1]), "f"(rC[0]), "f"(rC[1]),
+                 "f"(rC[2]), "f"(rC[3]));
+  int output_coords[4][2] = {
+      {output_uleft[0] + laneid / 4, output_uleft[1] + 2 * (laneid % 4)},
+      {output_uleft[0] + laneid / 4, output_uleft[1] + 1 + 2 * (laneid % 4)},
+      {output_uleft[0] + 8 + laneid / 4, output_uleft[1] + 2 * (laneid % 4)},
+      {output_uleft[0] + 8 + laneid / 4,
+       output_uleft[1] + 1 + 2 * (laneid % 4)}};
+}
+
+
 template <int qkv_dim>
 __device__ void reductionStep(float *shared_qkt, float *maxValues,
                               float *sumValues, half *shared_v, float *output,
@@ -174,4 +222,7 @@ __device__ void reductionStep(float *shared_qkt, float *maxValues,
     }
   }
 }
+
+
+
 
