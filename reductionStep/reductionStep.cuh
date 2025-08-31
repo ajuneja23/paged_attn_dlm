@@ -44,7 +44,19 @@ __device__ void initialReductions(float *qkt, __half *casted_qkt, int b_r,
 
 
 template <int qkv_dim>
-__device__ void globalSyncReduction()
+__device__ void globalSyncReduction(float *qkt, __half *casted_qkt, int b_r,
+                                    int b_c, int laneid, int warpid,
+                                    float *maxProposal, float *sumProposal,
+                                    float *oldMax, float* oldSum,
+                                    float *newMax, float *newSum) {
+  if (laneid == 0) {
+    *newMax = fmaxf(*newMax, *maxProposal);
+  }
+  if (laneid == 1) {
+    *newSum = expf(*oldMax - fmaxf(*oldMax, *maxProposal)) * (*oldSum) + expf(*maxProposal);
+  }//maybe split two terms of newSum and use a warp shuffle?
+  __syncwarp();
+  }
 
 
 
@@ -116,29 +128,66 @@ __device__ void calcPV(__half *p, __half *v, float *output, int laneid,
   }
 }
 
-template <int qkv_dim>
-__device__ void reductionStep(float *shared_qkt, float *maxValues,
-                              float *sumValues, half *shared_v, float *output,
-                              float *intermediateRowMaxes,
-                              float *intermediateSums,
-                              float *intermediatePV, half *casted_qkt,
-                              int warpid, int laneid, int tid, int b_c, int b_r,
-                              int kElementsTracked, int qElementsTracked) {
-  for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
-    initialReductions<qkv_dim>(
-        shared_qkt, casted_qkt, b_r, b_c, laneid, warpid, &intermediateRowMaxes[i], &intermediateSums[i]);
-    );
+
+__device__ void castQKT(float *qkt, __half *casted_qkt, int b_r, int b_c,
+                        int laneid, int warpid) {
+  int threadid = warpid * WARP_SIZE + laneid;
+  for (int i = threadid; i < b_r * b_c; i += WARP_SIZE * WARPS_PER_BLOCK) {
+    casted_qkt[threadid] = __float2half(qkt[warpid * b_c + i]);
   }
+}
+
+
+template <int qkv_dim>
+__device__ void
+finalOutputUpdate(float *output, float *intermediatePV, float *sumValues,
+                  float *maxValues, float *intermediateSumValues,
+                  float *intermediateMaxValues, float *curProposedRowMaxes,
+                  float *curProposedSums, int b_r, int b_c, int laneid,
+                  int warpid) {
+  int threadid = warpid * WARP_SIZE + laneid;
+  for (int i = threadid; i < b_r * qkv_dim; i += WARPS_PER_BLOCK * WARP_SIZE) {
+    int row = i / qkv_dim;
+    int term1 = expf(maxValues[row] - intermediateMaxValues[row]) * output[i];
+    int term2 = expf(curProposedRowMaxes[row] - intermediateMaxValues[row]) *
+                intermediatePV[i];
+    output[i] = (term1 * sumValues[row] + term2) / (1e-5f + intermediateSumValues[row]);
+  }
+  __syncthreads();
+  for (int i = threadid; i < b_r; i += WARP_SIZE * WARPS_PER_BLOCK) {
+    sumValues[i] = intermediateSumValues[i];
+    maxValues[i] = intermediateMaxValues[i];
+  }
+}
+
+
+template <int qkv_dim>
+__device__ void
+reductionStep(float *shared_qkt, float *maxValues, float *sumValues,
+              __half *shared_v, float *output, float *intermediateRowMaxes,
+              float *intermediateSums, float *curProposedRowMaxes,
+              float *curProposedSums, float *intermediatePV, __half *casted_qkt,
+              int warpid, int laneid, int tid, int b_c, int b_r,
+              int kElementsTracked, int qElementsTracked) {
+  for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
+    initialReductions<qkv_dim>(shared_qkt, casted_qkt, b_r, b_c, laneid, warpid,
+                            &curProposedRowMaxes[i], &curProposedSums[i]);
+    globalSyncReduction<qkv_dim>(shared_qkt, casted_qkt, b_r, b_c, laneid,
+                                 warpid, &curProposedRowMaxes[i],
+                                 &curProposedSums[i], &maxValues[i],
+                                 &sumValues[i], &intermediateRowMaxes[i],
+                                  &intermediateSums[i]);
+  }
+  castQKT(shared_qkt, casted_qkt, b_r, b_c, laneid, warpid);
   __syncthreads();
    calcPV<qkv_dim>(casted_qkt, shared_v, intermediatePV, laneid, warpid, b_r, b_c);
-  __syncthreads();
-  // final O_i update
-  for (int i = warpid; i < qElementsTracked; i += WARPS_PER_BLOCK) {
-    float coefficient = expf(intermediateRowMaxes[i] - maxValues[i]) / (sumValues[i] + 1e-5f);
-    for (int j = laneid; j < qkv_dim; j += WARP_SIZE) {
-      output[i * qkv_dim + j] += coefficient * intermediatePV[i * qkv_dim + j];
-    }
-  }
+
+   // final O_i update
+   finalOutputUpdate<qkv_dim>(output, intermediatePV, sumValues, maxValues,
+                              intermediateSums, intermediateRowMaxes,
+                              curProposedRowMaxes, curProposedSums, b_r, b_c,
+                              laneid, warpid);
+   
 }
 
 
