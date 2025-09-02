@@ -12,7 +12,7 @@ void naive_reduction_row_maxes(float *shared_qkt, float *maxValues,
     float *intermediatePV, int b_c, int b_r,
     int kElementsTracked, int qElementsTracked, float* curSum) {
         //calc m_{ij} 
-        for (int i =0; i< b_r; i++) {
+        for (int i = 0; i < b_r; i++) {
             intermediateRowMaxes[i] = -INFINITY;
             if (i >= qElementsTracked) { 
                 continue;

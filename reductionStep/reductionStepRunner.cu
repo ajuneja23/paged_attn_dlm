@@ -4,36 +4,40 @@
 
 template <int qkv_dim>
 __global__ void reductionStepWrapper(float *shared_qkt, float *maxValues,
-    float *sumValues, half *shared_v, float *output,
-    float *intermediateRowMaxes,
-    float *intermediatePV, half *casted_qkt,
+    float *sumValues, __half *shared_v, float *output,
+    float *intermediateRowMaxes, float *intermediateSums, float *curProposedRowMaxes, float *curProposedSums,
+    float *intermediatePV, __half *casted_qkt, int warpid, int laneid, int tid,
    int b_c, int b_r, int kElementsTracked, int qElementsTracked) {
   int warpid = blockIdx.x % WARPS_PER_BLOCK;
   int laneid = threadIdx.x % WARP_SIZE;
   int tid = threadIdx.x;
   reductionStep<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output,
-                         intermediateRowMaxes, intermediatePV, casted_qkt,
-                         warpid, laneid, tid, b_c, b_r, kElementsTracked,
-                         qElementsTracked);
+                         intermediateRowMaxes, intermediateSums, curProposedRowMaxes,
+                         curProposedSums, intermediatePV, casted_qkt, warpid, laneid,
+                         tid, b_c, b_r, kElementsTracked, qElementsTracked);
 }
 
 
 int main(int argc, char *argv[]) {
     constexpr int qkv_dim = 64;
-    constexpr int b_r=32;
+    constexpr int b_r = 32;
     constexpr int b_c = 32;
     constexpr int kElementsTracked = 32;
     constexpr int qElementsTracked = 32;//let's assume not last block
-    float *shared_qkt = new float[b_r * b_c];
-    float *maxValues = new float[b_r];
-    float *sumValues = new float[b_r];
-    float *shared_v = new float[b_c * qkv_dim];
-    float *output = new float[b_r * qkv_dim];
-    float *intermediateRowMaxes = new float[b_r];
-    float *intermediatePV = new float[b_r * qkv_dim];
-    float *casted_qkt = new float[b_r * b_c];
-    __half *casted_qkt_half = new __half[b_r * b_c];
-    __half *shared_v_half = new __half[b_c * qkv_dim];
+    float *shared_qkt = new float[b_r * b_c]();
+    float *maxValues = new float[b_r]();
+    float *sumValues = new float[b_r]();
+    float *shared_v = new float[b_c * qkv_dim]();
+    float *output = new float[b_r * qkv_dim]();
+    float *intermediateRowMaxes = new float[b_r]();
+    float *intermediateSums = new float[b_r]();
+    float *curProposedRowMaxes = new float[b_r]();
+    float *curProposedSums = new float[b_r]();
+    float *intermediatePV = new float[b_r * qkv_dim]();
+    float *casted_qkt = new float[b_r * b_c]();
+    __half *casted_qkt_half = new __half[b_r * b_c]();
+    __half *shared_v_half = new __half[b_c * qkv_dim]();
+
     std::mt19937 gen(42);
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
     for (int i = 0; i < b_r * b_c; i++) {
@@ -55,7 +59,7 @@ int main(int argc, char *argv[]) {
       shared_v_half[i] = __float2half(shared_v[i]);
     }
     float *d_shared_qkt, *d_maxValues, *d_sumValues, *d_output,
-        *d_intermediateRowMaxes, *d_intermediatePV;
+        *d_intermediateRowMaxes, *d_intermediateSums, *d_curProposedRowMaxes, *d_curProposedSums, *d_intermediatePV;
     __half *d_shared_v, *d_casted_qkt;
     cudaMalloc(&d_shared_qkt, b_r * b_c * sizeof(float));
     cudaMemcpy(d_shared_qkt, shared_qkt, b_r * b_c * sizeof(float), cudaMemcpyHostToDevice);
@@ -66,7 +70,17 @@ int main(int argc, char *argv[]) {
     cudaMalloc(&d_output, b_r * qkv_dim * sizeof(float));
     cudaMemcpy(d_output, output, b_r * qkv_dim * sizeof(float), cudaMemcpyHostToDevice);
     cudaMalloc(&d_intermediateRowMaxes, b_r * sizeof(float));
-    cudaMemcpy(d_intermediateRowMaxes, intermediateRowMaxes, b_r * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_intermediateRowMaxes, intermediateRowMaxes,
+               b_r * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMalloc(&d_intermediateSums, b_r * sizeof(float));
+    cudaMemcpy(d_intermediateSums, intermediateSums, b_r * sizeof(float),
+               cudaMemcpyHostToDevice);
+    cudaMalloc(&d_curProposedRowMaxes, b_r * sizeof(float));
+    cudaMemcpy(d_curProposedRowMaxes, curProposedRowMaxes,
+               b_r * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMalloc(&d_curProposedSums, b_r * sizeof(float));
+    cudaMemcpy(d_curProposedSums, curProposedSums,
+               b_r * sizeof(float), cudaMemcpyHostToDevice);
     cudaMalloc(&d_intermediatePV, b_r * qkv_dim * sizeof(float));
     cudaMemcpy(d_intermediatePV, intermediatePV, b_r * qkv_dim * sizeof(float), cudaMemcpyHostToDevice);
     cudaMalloc(&d_shared_v, b_c * qkv_dim * sizeof(__half));
@@ -78,7 +92,7 @@ int main(int argc, char *argv[]) {
     dim3 threadsPerBlock(WARP_SIZE * WARPS_PER_BLOCK);
     reductionStepWrapper<qkv_dim><<<numBlocks, threadsPerBlock>>>(
         d_shared_qkt, d_maxValues, d_sumValues, d_shared_v, d_output,
-        d_intermediateRowMaxes, d_intermediatePV, d_casted_qkt, b_c, b_r,
+        d_intermediateRowMaxes, d_intermediateSums, d_curProposedRowMaxes, d_curProposedSums, d_intermediatePV, d_casted_qkt, b_c, b_r,
         kElementsTracked, qElementsTracked);
     cudaDeviceSynchronize();
     naive_reduction<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output,
@@ -99,3 +113,4 @@ int main(int argc, char *argv[]) {
         }
       }
     }
+  }
