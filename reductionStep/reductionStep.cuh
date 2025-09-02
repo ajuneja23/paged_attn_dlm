@@ -25,7 +25,11 @@ __device__ void initialReductions(float *qkt, __half *casted_qkt, int b_r,
     seenMax = fmaxf(seenMax, qkt[warpid * b_c + i]);
   }
   __syncthreads();
-  __reduce_max_sync(0xFFFFFFFF, seenMax);
+  while (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
+    seenMax = fmaxf(seenMax, __shfl_down_sync(0xFFFFFFFF, seenMax, offset));
+  }
+  __syncwarp();
+  __shfl_sync(0xFFFFFFFF, seenMax, 0);//send to all lanes b/c we want parallelizable max subtraction and exp step
   for (int i = laneid; i < b_c; i += WARP_SIZE) {
     qkt[warpid * b_c + i] = qkt[warpid * b_c + i] - seenMax;
     qkt[warpid * b_c + i] = expf(qkt[warpid * b_c + i]);
@@ -35,7 +39,10 @@ __device__ void initialReductions(float *qkt, __half *casted_qkt, int b_r,
   for (int i = laneid; i < b_c; i += WARP_SIZE) {
     runningSum += qkt[warpid * b_c + i];
   }
-  __reduce_add_sync(0xFFFFFFFF, runningSum);
+  while (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
+    runningSum += __shfl_down_sync(0xFFFFFFFF, runningSum, offset);
+  }
+  __syncwarp();
   if (laneid == 0) {
     *maxProposal = seenMax;
     *sumVal = runningSum;

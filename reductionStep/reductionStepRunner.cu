@@ -3,14 +3,16 @@
 
 
 template <int qkv_dim>
-__global__ void reductionStepWrapper(float *shared_qkt, float *maxValues,
-    float *sumValues, __half *shared_v, float *output,
-    float *intermediateRowMaxes, float *intermediateSums, float *curProposedRowMaxes, float *curProposedSums,
-    float *intermediatePV, __half *casted_qkt, int warpid, int laneid, int tid,
-   int b_c, int b_r, int kElementsTracked, int qElementsTracked) {
-  int warpid = blockIdx.x % WARPS_PER_BLOCK;
-  int laneid = threadIdx.x % WARP_SIZE;
+__global__ void
+reductionStepWrapper(float *shared_qkt, float *maxValues, float *sumValues,
+                     __half *shared_v, float *output,
+                     float *intermediateRowMaxes, float *intermediateSums,
+                     float *curProposedRowMaxes, float *curProposedSums,
+                     float *intermediatePV, __half *casted_qkt, int b_c,
+                     int b_r, int kElementsTracked, int qElementsTracked) {
   int tid = threadIdx.x;
+  int laneid = tid % WARP_SIZE;
+  int warpid = tid / WARP_SIZE;
   reductionStep<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output,
                          intermediateRowMaxes, intermediateSums, curProposedRowMaxes,
                          curProposedSums, intermediatePV, casted_qkt, warpid, laneid,

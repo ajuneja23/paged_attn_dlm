@@ -12,7 +12,7 @@
 #include "naiveReduction.h"
 #include "reductionStep.cuh"
 #define WARP_SIZE 32
-
+#define WARPS_PER_BLOCK 4
 
 
 template <int qkv_dim>
