@@ -1,8 +1,7 @@
 modal shell --gpu a100 \
  --image "nvidia/cuda:12.2.0-devel-ubuntu22.04" \
  --add-python 3.11 \
- --cmd "echo "hi" && \ 
- apt-get update && \
+ --cmd "apt-get update && \
  apt-get install git -y && \
  git clone https://github.com/ajuneja23/paged_attn_dlm && \
  cd paged_attn_dlm && \

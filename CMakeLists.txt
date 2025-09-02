@@ -38,7 +38,7 @@ if (BUILD_NAIVE_QKT)#just test the qkt
 endif (BUILD_NAIVE_QKT)
 
 if (BUILD_REDUCTION_STEP)
-    add_executable(reductionStepRunner reductionStep/reductionStepRunner.cu reductionStep/reductionStep.cu)
+    add_executable(reductionStepRunner reductionStep/reductionStep.cuh reductionStep/reductionStepRunner.cuh)
     target_link_libraries(reductionStepRunner CUDA::cudart)
     include_directories(reductionStep)
     set_property(TARGET reductionStepRunner PROPERTY CXX_STANDARD 17)
