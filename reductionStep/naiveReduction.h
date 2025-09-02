@@ -25,12 +25,12 @@ void naive_reduction_row_maxes(float *shared_qkt, float *maxValues,
             }
         }
         //calc s_{ij} and l_{ij}
-        for (int i = 0;i<b_r;i++) {
+        for (int i = 0;i < b_r;i++) {
             curSum[i] = 0.0f;
-            for (int j=0;j<b_c;j++) {
-                shared_qkt[i*b_c+j] -= maxValues[i]; 
-                shared_qkt[i*b_c+j]=expf(shared_qkt[i*b_c+j]);
-                curSum[i] += shared_qkt[i*b_c+j];
+            for (int j = 0; j < b_c; j++) {
+                shared_qkt[i * b_c + j] -= maxValues[i];
+                shared_qkt[i * b_c + j] = expf(shared_qkt[i * b_c + j]);
+                curSum[i] += shared_qkt[i * b_c + j];
             }
         }
     }
@@ -66,30 +66,28 @@ void naive_reduction(float *shared_qkt, float *maxValues,
     float *intermediateRowMaxes,
     float *intermediatePV, int b_c, int b_r,
     int kElementsTracked, int qElementsTracked, float* curSum) {
-        naive_reduction_row_maxes<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output, intermediateRowMaxes, intermediatePV, b_c, b_r, kElementsTracked, qElementsTracked);
-        float *l_inew=new float[b_r];
-        for (int i=0;i<b_r;i++) {
-            if (i>=qElementsTracked) {
+        naive_reduction_row_maxes<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output, intermediateRowMaxes, intermediatePV, b_c, b_r, kElementsTracked, qElementsTracked, curSum);
+        float *l_inew = new float[b_r];
+        for (int i = 0; i < b_r; i++) {
+            if (i >= qElementsTracked) {
                 continue;
             }
-            float overallRowMax=fmaxf(intermediateRowMaxes[i],maxValues[i]);
-            l_inew[i]=0.0f;
-            l_inew[i]+=expf(maxValues[i]-overallRowMax)*sumValues[i]+expf(intermediateRowMaxes[i]-overallRowMax)*curSum[i];
+            float overallRowMax = fmaxf(intermediateRowMaxes[i], maxValues[i]);
+            l_inew[i] = 0.0f;
+            l_inew[i] += expf(maxValues[i] - overallRowMax) * sumValues[i] + expf(intermediateRowMaxes[i] - overallRowMax) * curSum[i];
         }
         naive_pv_calculation<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output, intermediateRowMaxes, intermediatePV, b_c, b_r, kElementsTracked, qElementsTracked, curSum);
-        for (int i=0;i<b_r;i++) {
-            if (i>=qElementsTracked) {
+        for (int i = 0; i < b_r; i++) {
+            if (i >= qElementsTracked) {
                 continue;
             }
-            for (int j=0;j<qkv_dim;j++) {
-                float overallRowMax=fmaxf(intermediateRowMaxes[i],maxValues[i]);
-                output[i*qkv_dim+j]*=expf(maxValues[i]-overallRowMax);
+            for (int j = 0; j < qkv_dim; j++) {
+                float overallRowMax = fmaxf(intermediateRowMaxes[i], maxValues[i]);
+                output[i * qkv_dim + j] *= expf(maxValues[i] - overallRowMax);
                 output[i * qkv_dim + j] *= sumValues[i];
-                output[i*qkv_dim+j]+=intermediatePV[i*qkv_dim+j]*expf(intermediateRowMaxes[i]-overallRowMax);
-                sumValues[i]=l_inew[i];
-                maxValues[i]=overallRowMax;
+                output[i * qkv_dim + j] += intermediatePV[i * qkv_dim + j] * expf(intermediateRowMaxes[i] - overallRowMax);
+                sumValues[i] = l_inew[i];
+                maxValues[i] = overallRowMax;
             }
-
-            
         }
     }
