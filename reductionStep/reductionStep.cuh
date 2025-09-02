@@ -25,7 +25,7 @@ __device__ void initialReductions(float *qkt, __half *casted_qkt, int b_r,
     seenMax = fmaxf(seenMax, qkt[warpid * b_c + i]);
   }
   __syncthreads();
-  while (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
+  for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
     seenMax = fmaxf(seenMax, __shfl_down_sync(0xFFFFFFFF, seenMax, offset));
   }
   __syncwarp();
@@ -39,7 +39,7 @@ __device__ void initialReductions(float *qkt, __half *casted_qkt, int b_r,
   for (int i = laneid; i < b_c; i += WARP_SIZE) {
     runningSum += qkt[warpid * b_c + i];
   }
-  while (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
+  for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
     runningSum += __shfl_down_sync(0xFFFFFFFF, runningSum, offset);
   }
   __syncwarp();
