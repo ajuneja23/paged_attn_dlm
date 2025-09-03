@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
     float *gpu_output = new float[b_r * qkv_dim]();
     calcPVWrapper<qkv_dim><<<numBlocks, threadsPerBlock>>>(d_casted_qkt, d_shared_v,
                                                     d_intermediatePV, b_r, b_c);
-    cudaMemcpy(gpu_output, d_intermediatePV, b_r * qkv_dim * sizeof(float),
-               cudaMemcpyDeviceToHost);
+    /*cudaMemcpy(gpu_output, d_intermediatePV, b_r * qkv_dim * sizeof(float),
+               cudaMemcpyDeviceToHost);*/
     naive_pv_calculation<qkv_dim>(shared_qkt, shared_v, output, b_c, b_r,
                                   kElementsTracked, qElementsTracked);
     float allowedError = 1e-2;
