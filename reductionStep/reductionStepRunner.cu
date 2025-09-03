@@ -21,7 +21,7 @@ reductionStepWrapper(float *shared_qkt, float *maxValues, float *sumValues,
 }
 
 template <int qkv_dim>
-__device__ void calcPV(__half *p, __half *v, float *output, int b_r, int b_c) {
+__global__ void calcPVWrapper(__half *p, __half *v, float *output, int b_r, int b_c) {
   int laneid = threadIdx.x % WARP_SIZE;
   int warpid = threadIdx.x / WARP_SIZE;
   calcPV<qkv_dim>(p, v, output, laneid, warpid, b_r, b_c);
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     dim3 numBlocks(1);
     dim3 threadsPerBlock(WARP_SIZE * WARPS_PER_BLOCK);
     float *gpu_output = new float[b_r * qkv_dim]();
-    calcPV<qkv_dim><<<numBlocks, threadsPerBlock>>>(d_casted_qkt, d_shared_v,
+    calcPVWrapper<qkv_dim><<<numBlocks, threadsPerBlock>>>(d_casted_qkt, d_shared_v,
                                                     d_intermediatePV, b_r, b_c);
     cudaMemcpy(gpu_output, d_intermediatePV, b_r * qkv_dim * sizeof(float),
                cudaMemcpyDeviceToHost);
