@@ -131,7 +131,7 @@ __device__ void calcPV(half *p, half *v, float *output, int laneid,
     }
     int output_coords[4][2] = {
         {output_u_left[0] + laneid / 4, output_u_left[1] + 2 * (laneid % 4)},
-        {output_u_left[0] + laneid / 4, output_u_left[1] + 1 + 2 * (laneid % 4)},
+        {output_u_left[0] + laneid / 4, ox`utput_u_left[1] + 1 + 2 * (laneid % 4)},
         {output_u_left[0] + laneid / 4 + 8, output_u_left[1] + 2 * (laneid % 4)},
         {output_u_left[0] + laneid / 4 + 8,
          output_u_left[1] + 1 + 2 * (laneid % 4)}};
