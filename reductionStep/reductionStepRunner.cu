@@ -22,8 +22,8 @@ reductionStepWrapper(float *shared_qkt, float *maxValues, float *sumValues,
 
 template <int qkv_dim>
 __device__ void calcPV(__half *p, __half *v, float *output, int b_r, int b_c) {
-  int laneid = threadIdx % WARP_SIZE;
-  int warpid = threadIdx / WARP_SIZE;
+  int laneid = threadIdx.x % WARP_SIZE;
+  int warpid = threadIdx.x / WARP_SIZE;
   calcPV<qkv_dim>(p, v, output, laneid, warpid, b_r, b_c);
 }
 
@@ -56,15 +56,16 @@ int main(int argc, char *argv[]) {
       shared_v[i] = dis(gen);
       shared_v_half[i] = __float2half(shared_v[i]);
     }
-    __half *d_shared_v, *d_casted_qkt, d_intermediatePV;
+    __half *d_shared_v, *d_casted_qkt;
+    float *d_intermediatePV;
     cudaMalloc(&d_shared_v, b_c * qkv_dim * sizeof(__half));
     cudaMemcpy(d_shared_v, shared_v_half, b_c * qkv_dim * sizeof(__half),
                cudaMemcpyHostToDevice);
     cudaMalloc(&d_casted_qkt, b_r * b_c * sizeof(__half));
     cudaMemcpy(d_casted_qkt, casted_qkt, b_r * b_c * sizeof(__half),
                cudaMemcpyHostToDevice);
-    cudaMalloc(&d_intermediatePV, b_r * qkv_dim * sizeof(__half));
-    cudaMemcpy(d_intermediatePV, intermediatePV, b_r * qkv_dim * sizeof(__half),
+    cudaMalloc(&d_intermediatePV, b_r * qkv_dim * sizeof(float));
+    cudaMemcpy(d_intermediatePV, intermediatePV, b_r * qkv_dim * sizeof(float),
                cudaMemcpyHostToDevice);
     dim3 numBlocks(1);
     dim3 threadsPerBlock(WARP_SIZE * WARPS_PER_BLOCK);
