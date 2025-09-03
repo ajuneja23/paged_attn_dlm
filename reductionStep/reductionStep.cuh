@@ -130,11 +130,11 @@ __device__ void calcPV(half *p, half *v, float *output, int laneid,
                                 v_uleft, rC);
     }
     int output_coords[4][2] = {
-        {output_uleft[0] + laneid / 4, output_uleft[1] + 2 * (laneid % 4)},
-        {output_uleft[0] + laneid / 4, output_uleft[1] + 1 + 2 * (laneid % 4)},
-        {output_uleft[0] + laneid / 4 + 8, output_uleft[1] + 2 * (laneid % 4)},
-        {output_uleft[0] + laneid / 4 + 8,
-         output_uleft[1] + 1 + 2 * (laneid % 4)}};
+        {output_u_left[0] + laneid / 4, output_u_left[1] + 2 * (laneid % 4)},
+        {output_u_left[0] + laneid / 4, output_u_left[1] + 1 + 2 * (laneid % 4)},
+        {output_u_left[0] + laneid / 4 + 8, output_u_left[1] + 2 * (laneid % 4)},
+        {output_u_left[0] + laneid / 4 + 8,
+         output_u_left[1] + 1 + 2 * (laneid % 4)}};
     for (int idx = 0; idx < 4; idx++) {
       output[output_coords[idx][0] * qkv_dim + output_coords[idx][1]] = rC[idx];
     }
