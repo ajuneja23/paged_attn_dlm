@@ -75,8 +75,7 @@ int main(int argc, char *argv[]) {
     cudaMemcpy(gpu_output, d_intermediatePV, b_r * qkv_dim * sizeof(float),
                cudaMemcpyDeviceToHost);
     naive_pv_calculation<qkv_dim>(shared_qkt, shared_v, output, b_c, b_r,
-                                  kElementsTracked, qElementsTracked,
-                                  intermediatePV);
+                                  kElementsTracked, qElementsTracked);
     float allowedError = 1e-2;
     for (int i = 0; i < b_r * qkv_dim; i++) {
       float diff = fabs(output[i] - gpu_output[i]);
