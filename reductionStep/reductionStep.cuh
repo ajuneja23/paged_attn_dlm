@@ -81,10 +81,10 @@ __device__ void calcPVSubroutine(half *p, half *v, float *output, int laneid,
   int p_entryCoords[8][2] = {
     {p_uleft[0] + laneid / 4, p_uleft[1] + 2 * (laneid % 4)},
     {p_uleft[0] + laneid / 4, p_uleft[1] + 1 + 2 * (laneid % 4)},
-    {p_uleft[0] + laneid / 4, p_uleft[1] + 8 + 2 * (laneid % 4)},
-    {p_uleft[0] + laneid / 4, p_uleft[1] + 9 + 2 * (laneid % 4)},
     {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 2 * (laneid % 4)},
     {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 1 + 2 * (laneid % 4)},
+    {p_uleft[0] + laneid / 4, p_uleft[1] + 8 + 2 * (laneid % 4)},
+    {p_uleft[0] + laneid / 4, p_uleft[1] + 9 + 2 * (laneid % 4)},
     {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 8 + 2 * (laneid % 4)},
     {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 9 + 2 * (laneid % 4)},
   };
