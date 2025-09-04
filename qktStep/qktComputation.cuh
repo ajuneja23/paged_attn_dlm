@@ -19,8 +19,8 @@
 template <int qkv_dim>
 __device__ void calcQKT(half *shared_q, half *shared_k, float *shared_qkt,
                         int laneid, int warpid, int b_c, int b_r) {
-  int req_x_tiles = ceilf(b_c / TILE_X_SIZE);
-  int req_y_tiles = ceilf(b_r / TILE_Y_SIZE);
+  int req_x_tiles = ceilf(static_cast<float>(b_c) / TILE_X_SIZE);
+  int req_y_tiles = ceilf(static_cast<float>(b_r) / TILE_Y_SIZE);
 
   int req_tiles =
       req_x_tiles * req_y_tiles; // # of tiles in full qk^t block output

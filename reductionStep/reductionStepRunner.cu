@@ -69,19 +69,17 @@ int main(int argc, char *argv[]) {
                cudaMemcpyHostToDevice);
     dim3 numBlocks(1);
     dim3 threadsPerBlock(WARP_SIZE * WARPS_PER_BLOCK);
-    float *gpu_output = new float[b_r * qkv_dim]();
     calcPVWrapper<qkv_dim><<<numBlocks, threadsPerBlock>>>(d_casted_qkt, d_shared_v,
                                                     d_intermediatePV, b_r, b_c);
-    cudaMemcpy(gpu_output, d_intermediatePV, b_r * qkv_dim * sizeof(float),
+    cudaMemcpy(intermediatePV, d_intermediatePV, b_r * qkv_dim * sizeof(float),
                cudaMemcpyDeviceToHost);
-    naive_pv_calculation<qkv_dim>(shared_qkt, shared_v, output, b_c, b_r,
-                                  kElementsTracked, qElementsTracked);
+    naive_pv_calculation<qkv_dim>(shared_qkt, shared_v, output, b_c, b_r);
     float allowedError = 1e-2;
     for (int i = 0; i < b_r * qkv_dim; i++) {
-      float diff = fabs(output[i] - gpu_output[i]);
+      float diff = fabs(output[i] - intermediatePV[i]);
       if (diff > allowedError) {
         std::cout << "Error at " << i << std::endl;
-        std::cout << "Device value: " << gpu_output[i] << std::endl;
+        std::cout << "Device value: " << intermediatePV[i] << std::endl;
         std::cout << "CPU value: " << output[i] << std::endl;
         std::cout << "Difference: " << diff << std::endl;
       }

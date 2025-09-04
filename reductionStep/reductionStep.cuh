@@ -116,8 +116,8 @@ __device__ void calcPVSubroutine(half *p, half *v, float *output, int laneid,
 template <int qkv_dim>
 __device__ void calcPV(half *p, half *v, float *output, int laneid,
                        int warpid, int b_r, int b_c) {
-  int req_x_tiles = ceilf(qkv_dim / TILE_X_SIZE);
-  int req_y_tiles = ceilf(b_r / TILE_Y_SIZE);
+  int req_x_tiles = ceilf(static_cast<float>(qkv_dim) / TILE_X_SIZE);
+  int req_y_tiles = ceilf(static_cast<float>(b_r) / TILE_Y_SIZE);
   int req_tiles = req_x_tiles * req_y_tiles;
   for (int i = warpid; i < req_tiles; i += WARPS_PER_BLOCK) {
     float rC[4] = {0.0f, 0.0f, 0.0f, 0.0f};
