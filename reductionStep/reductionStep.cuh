@@ -89,7 +89,7 @@ __device__ void calcPVSubroutine(half *p, half *v, float *output, int laneid,
     {p_uleft[0] + 8 + laneid / 4, p_uleft[1] + 9 + 2 * (laneid % 4)},
   };
   for (int i = 0; i < 8; i++) {
-    p_elements[i] = p_entryCoords[i][0] * b_c + p_entryCoords[i][1];
+    p_elements[i] = p[p_entryCoords[i][0] * b_c + p_entryCoords[i][1]];
   }
   int v_entryCoords[4][2] = {
       {v_uleft[0] + 2 * (laneid % 4), v_uleft[1] + laneid / 4},
@@ -98,7 +98,7 @@ __device__ void calcPVSubroutine(half *p, half *v, float *output, int laneid,
       {v_uleft[0] + 9 + 2 * (laneid % 4), v_uleft[1] + laneid / 4},
   };
   for (int i = 0; i < 4; i++) {
-    v_elements[i] = v_entryCoords[i][0] * qkv_dim + v_entryCoords[i][1];
+    v_elements[i] = v[v_entryCoords[i][0] * qkv_dim + v_entryCoords[i][1]];
   }
   unsigned const *p_ptr = reinterpret_cast<unsigned const *>(p_elements);
   unsigned const *v_ptr = reinterpret_cast<unsigned const *>(v_elements);
