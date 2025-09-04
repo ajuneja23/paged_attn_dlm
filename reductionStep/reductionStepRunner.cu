@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
                cudaMemcpyDeviceToHost);
     naive_pv_calculation<qkv_dim>(shared_qkt, shared_v, output, b_c, b_r);
     float allowedError = 1e-2;
+    int numErrors = 0;
     for (int i = 0; i < b_r * qkv_dim; i++) {
       float diff = fabs(output[i] - intermediatePV[i]);
       if (diff > allowedError) {
@@ -82,8 +83,10 @@ int main(int argc, char *argv[]) {
         std::cout << "Device value: " << intermediatePV[i] << std::endl;
         std::cout << "CPU value: " << output[i] << std::endl;
         std::cout << "Difference: " << diff << std::endl;
+        numErrors++;
       }
     }
+    std::cout << "Total errors: " << numErrors << std::endl;
     return 0;
   } 
   constexpr int qkv_dim = 64;
