@@ -76,8 +76,8 @@ __device__ void globalSyncReduction(float *qkt, half *casted_qkt, int b_r,
 template <int qkv_dim> //(b_r,b_c) x (b_c,qkv_dim) = (b_r,qkv_dim)
 __device__ void calcPVSubroutine(half *p, half *v, float *output, int laneid,
                        int warpid, int b_r, int b_c, int *p_uleft, int *v_uleft, float* rC) {
-  half *p_elements[8];
-  half *v_elements[4];
+  half p_elements[8];
+  half v_elements[4];
   int p_entryCoords[8][2] = {
     {p_uleft[0] + laneid / 4, p_uleft[1] + 2 * (laneid % 4)},
     {p_uleft[0] + laneid / 4, p_uleft[1] + 1 + 2 * (laneid % 4)},
