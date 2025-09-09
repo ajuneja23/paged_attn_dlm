@@ -166,8 +166,7 @@ int main(int argc, char *argv[]) {
       kElementsTracked, qElementsTracked);
   cudaDeviceSynchronize();
   naive_reduction<qkv_dim>(shared_qkt, maxValues, sumValues, shared_v, output,
-                  intermediateRowMaxes, intermediatePV, b_c, b_r,
-                  kElementsTracked, qElementsTracked, curProposedSums);
+                  intermediateRowMaxes, intermediatePV, b_c, b_r, curProposedSums);
   float *kernel_output = new float[b_r * qkv_dim];
   cudaMemcpy(kernel_output, d_output, b_r * qkv_dim * sizeof(float),
               cudaMemcpyDeviceToHost);
