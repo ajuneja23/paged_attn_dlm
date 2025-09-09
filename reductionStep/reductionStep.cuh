@@ -21,33 +21,32 @@ template <int qkv_dim> // step 10 of FA1 paper Algorithm 1
 __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
                                   int b_c, int laneid, int warpid,
                                   float *maxProposal, float *sumProposal) {
-  for (int i = warpid; i < b_r; i += WARPS_PER_BLOCK) {
+  for (int i = warpid; i < b_r; i += WARPS_PER_BLOCK) { //each warp handles a row
     float seenMax = -INFINITY;
     for (int j = laneid; j < b_c; j += WARP_SIZE) {
       seenMax = fmaxf(seenMax, qkt[i * b_c + j]);
     }
     __syncwarp();
     for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
-      seenMax = fmaxf(seenMax, __shfl_down_sync(0xFFFFFFFF, seenMax, offset));
+      seenMax = fmaxf(seenMax, __shfl_down_sync(0xffffffff, seenMax, offset));
     }
     __syncwarp();
-    __shfl_sync(0xFFFFFFFF, seenMax, 0);//send to all lanes b/c we want parallelizable max subtraction and exp step
-    for (int j = laneid; j < b_c; j += WARP_SIZE) {
-      qkt[i * b_c + j] = qkt[i * b_c + j] - seenMax;
-      qkt[i * b_c + j] = expf(qkt[i * b_c + j]);
-    }
-    __syncwarp();
+    __shfl_sync(0xffffffff, seenMax,
+                0); // send to all lanes b/c we want parallelizable max
+                    // subtraction and exp step
     float runningSum = 0.0f;
     for (int j = laneid; j < b_c; j += WARP_SIZE) {
+      qkt[i * b_c + j] = expf(qkt[i * b_c + j] - seenMax);
       runningSum += qkt[i * b_c + j];
     }
+    __syncwarp();
     for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
-      runningSum += __shfl_down_sync(0xFFFFFFFF, runningSum, offset);
+      runningSum += __shfl_down_sync(0xffffffff, runningSum, offset);
     }
     __syncwarp();
     if (laneid == 0) {
-      maxProposal[i] = seenMax;
-      sumProposal[i] = runningSum;
+      maxProposal[i] = seenMax;//m_{ij}
+      sumProposal[i] = runningSum;//l_{ij}
     }
   }
 }
@@ -56,16 +55,19 @@ __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
 template <int qkv_dim>
 __device__ void globalSyncReduction(float *qkt, half *casted_qkt, int b_r,
                                     int b_c, int laneid, int warpid,
-                                    float *curProposedMaxes, float *curProposedSums,
+                                    float *maxProposal, float *sumProposal,
                                     float *maxValues, float *sumValues, float *intermediateRowMaxes,
                                     float *intermediateSumValues) {
   for (int i = warpid; i < b_r; i += WARPS_PER_BLOCK) {
     if (laneid == 0) {
-      intermediateRowMaxes[i] = fmaxf(maxValues[i], curProposedMaxes[i]);
+      intermediateRowMaxes[i] = fmaxf(maxValues[i], maxProposal[i]);//m_i^{new}
     }
     if (laneid == 1) {
-      intermediateSumValues[i] = expf(maxValues[i] - intermediateRowMaxes[i]) * sumValues[i] + expf(curProposedMaxes[i] - intermediateRowMaxes[i]) * curProposedSums[i];
-        }//maybe split two terms of newSum and use a warp shuffle?
+      intermediateSumValues[i] =
+          expf(maxValues[i] - intermediateRowMaxes[i]) * sumValues[i] +
+          expf(maxProposal[i] - intermediateRowMaxes[i]) *
+              sumProposal[i]; // l_i^{new}
+    }
     __syncwarp();
   }
 }
@@ -167,7 +169,7 @@ finalOutputUpdate(float *output, float *intermediatePV, float *sumValues,
     output[i] = (term1 * sumValues[row] + term2) / (1e-5f + intermediateSumValues[row]);
   }
   __syncthreads();
-  for (int i = threadid; i < b_r; i += WARP_SIZE * WARPS_PER_BLOCK) {
+  for (int i = threadid; i < b_r; i += WARPS_PER_BLOCK * WARP_SIZE) {
     sumValues[i] = intermediateSumValues[i];
     maxValues[i] = intermediateMaxValues[i];
   }

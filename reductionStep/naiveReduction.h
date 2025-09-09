@@ -21,8 +21,7 @@ void naive_reduction_row_maxes(float *shared_qkt, float *maxValues,
         for (int i = 0;i < b_r;i++) {
             curSum[i] = 0.0f;
             for (int j = 0; j < b_c; j++) {
-                shared_qkt[i * b_c + j] -= intermediateRowMaxes[i];
-                shared_qkt[i * b_c + j] = expf(shared_qkt[i * b_c + j]);//in-place S->P calc
+                shared_qkt[i * b_c + j] = expf(shared_qkt[i * b_c + j] - intermediateRowMaxes[i]);
                 curSum[i] += shared_qkt[i * b_c + j];
             }
         }
@@ -30,17 +29,18 @@ void naive_reduction_row_maxes(float *shared_qkt, float *maxValues,
 
 
 
-    template <int qkv_dim> //(b_r,b_c) x (b_c,qkv_dim) is (b_r,qkv_dim)
-    void naive_pv_calculation(float *shared_qkt, float *shared_v,
-                              float *intermediatePV, int b_c, int b_r) {
-      for (int i = 0; i < b_r; i++) {
-            for (int j = 0; j < qkv_dim; j++) {
-                for (int k = 0; k < b_c; k++) {
-                    intermediatePV[i * qkv_dim + j] += shared_qkt[i * b_c + k] * shared_v[k * qkv_dim + j];
-                }
+template <int qkv_dim> //(b_r,b_c) x (b_c,qkv_dim) is (b_r,qkv_dim)
+void naive_pv_calculation(float *shared_qkt, float *shared_v,
+                            float *intermediatePV, int b_c, int b_r) {
+    for (int i = 0; i < b_r; i++) {
+        for (int j = 0; j < qkv_dim; j++) {
+            for (int k = 0; k < b_c; k++) {
+                intermediatePV[i * qkv_dim + j] += shared_qkt[i * b_c + k] * shared_v[k * qkv_dim + j];
             }
-      }
+        }
+    }
 }
+
 
 template <int qkv_dim>
 void naive_reduction(float *shared_qkt, float *maxValues,
