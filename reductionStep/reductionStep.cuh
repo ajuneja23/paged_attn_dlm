@@ -163,8 +163,8 @@ finalOutputUpdate(float *output, float *intermediatePV, float *sumValues,
   int threadid = warpid * WARP_SIZE + laneid;
   for (int i = threadid; i < b_r * qkv_dim; i += WARPS_PER_BLOCK * WARP_SIZE) {
     int row = i / qkv_dim;
-    int term1 = expf(maxValues[row] - intermediateMaxValues[row]) * output[i];
-    int term2 = expf(curProposedRowMaxes[row] - intermediateMaxValues[row]) *
+    float term1 = expf(maxValues[row] - intermediateMaxValues[row]) * output[i];
+    float term2 = expf(curProposedRowMaxes[row] - intermediateMaxValues[row]) *
                 intermediatePV[i];
     output[i] = (term1 * sumValues[row] + term2) / (1e-5f + intermediateSumValues[row]);
   }

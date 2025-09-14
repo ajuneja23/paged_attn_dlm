@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<float> dis(0.0f, 1.0f);
   for (int i = 0; i < b_r * b_c; i++) {
     shared_qkt[i] = dis(gen);
-    casted_qkt[i] = dis(gen);
+    casted_qkt[i] = shared_qkt[i];
     casted_qkt_half[i] = __float2half(casted_qkt[i]);
   }
   for (int i = 0; i < b_r; i++) {
