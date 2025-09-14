@@ -62,7 +62,7 @@ void naive_reduction(float *shared_qkt, float *maxValues,
                 output[i * qkv_dim + j] +=
                     (intermediatePV[i * qkv_dim + j] *
                      expf(intermediateRowMaxes[i] - overallRowMax));
-                output[i * qkv_dim + j ] /= (1e-5f + l_inew[i]);
+                output[i * qkv_dim + j ] /= (l_inew[i]);
             }
             sumValues[i] = l_inew[i]; 
             maxValues[i] = overallRowMax;

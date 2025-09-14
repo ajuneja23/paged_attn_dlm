@@ -44,7 +44,6 @@ __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
       runningSum += __shfl_down_sync(0xffffffff, runningSum, offset);
     }
     __syncwarp();
-    __shfl_sync(0xffffffff, runningSum, 0);
     if (laneid == 0) {
       curProposedRowMaxes[i] = seenMax;//m_{ij}
       curProposedSums[i] = runningSum;//l_{ij}
@@ -167,7 +166,7 @@ finalOutputUpdate(float *output, float *intermediatePV, float *sumValues,
     float term1 = expf(maxValues[row] - intermediateRowMaxes[row]) * output[i];
     float term2 = expf(curProposedRowMaxes[row] - intermediateRowMaxes[row]) *
                 intermediatePV[i];
-    output[i] = (term1 * sumValues[row] + term2) / (1e-5f + intermediateSumValues[row]);
+    output[i] = (term1 * sumValues[row] + term2) / (intermediateSumValues[row]);
   }
   __syncthreads();
   for (int i = threadid; i < b_r; i += WARPS_PER_BLOCK * WARP_SIZE) {
