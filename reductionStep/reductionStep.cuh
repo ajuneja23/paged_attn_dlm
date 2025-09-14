@@ -182,8 +182,7 @@ reductionStep(float *shared_qkt, float *maxValues, float *sumValues,
               half *shared_v, float *output, float *intermediateRowMaxes,
               float *intermediateSums, float *curProposedRowMaxes,
               float *curProposedSums, float *intermediatePV, half *casted_qkt,
-              int warpid, int laneid, int tid, int b_c, int b_r,
-              int kElementsTracked, int qElementsTracked) {
+              int warpid, int laneid, int tid, int b_c, int b_r) {
   initialReductions<qkv_dim>(shared_qkt, casted_qkt, b_r, b_c, laneid, warpid,
                             curProposedRowMaxes, curProposedSums);
   globalSyncReduction<qkv_dim>(shared_qkt, casted_qkt, b_r, b_c, laneid,
