@@ -20,7 +20,7 @@
 template <int qkv_dim> // step 10 of FA1 paper Algorithm 1
 __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
                                   int b_c, int laneid, int warpid,
-                                  float *maxProposal, float *sumProposal) {
+                                  float *curProposedRowMaxes, float *curProposedSums) {
   for (int i = warpid; i < b_r; i += WARPS_PER_BLOCK) { //each warp handles a row
     float seenMax = -INFINITY;
     for (int j = laneid; j < b_c; j += WARP_SIZE) {
@@ -45,8 +45,8 @@ __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
     }
     __syncwarp();
     if (laneid == 0) {
-      maxProposal[i] = seenMax;//m_{ij}
-      sumProposal[i] = runningSum;//l_{ij}
+      curProposedRowMaxes[i] = seenMax;//m_{ij}
+      curProposedSums[i] = runningSum;//l_{ij}
     }
   }
 }
@@ -55,18 +55,18 @@ __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
 template <int qkv_dim>
 __device__ void globalSyncReduction(float *qkt, half *casted_qkt, int b_r,
                                     int b_c, int laneid, int warpid,
-                                    float *maxProposal, float *sumProposal,
+                                    float *curProposedRowMaxes, float *curProposedSums,
                                     float *maxValues, float *sumValues, float *intermediateRowMaxes,
                                     float *intermediateSumValues) {
   for (int i = warpid; i < b_r; i += WARPS_PER_BLOCK) {
     if (laneid == 0) {
-      intermediateRowMaxes[i] = fmaxf(maxValues[i], maxProposal[i]);//m_i^{new}
+      intermediateRowMaxes[i] = fmaxf(maxValues[i], curProposedRowMaxes[i]);//m_i^{new}
     }
     if (laneid == 1) {
       intermediateSumValues[i] =
           expf(maxValues[i] - intermediateRowMaxes[i]) * sumValues[i] +
-          expf(maxProposal[i] - intermediateRowMaxes[i]) *
-              sumProposal[i]; // l_i^{new}
+          expf(curProposedRowMaxes[i] - intermediateRowMaxes[i]) *
+              curProposedSums[i]; // l_i^{new}
     }
     __syncwarp();
   }
@@ -157,21 +157,21 @@ template <int qkv_dim>
 __device__ void
 finalOutputUpdate(float *output, float *intermediatePV, float *sumValues,
                   float *maxValues, float *intermediateSumValues,
-                  float *intermediateMaxValues, float *curProposedRowMaxes,
+                  float *intermediateRowMaxes, float *curProposedRowMaxes,
                   float *curProposedSums, int b_r, int b_c, int laneid,
                   int warpid) {
   int threadid = warpid * WARP_SIZE + laneid;
   for (int i = threadid; i < b_r * qkv_dim; i += WARPS_PER_BLOCK * WARP_SIZE) {
     int row = i / qkv_dim;
-    float term1 = expf(maxValues[row] - intermediateMaxValues[row]) * output[i];
-    float term2 = expf(curProposedRowMaxes[row] - intermediateMaxValues[row]) *
+    float term1 = expf(maxValues[row] - intermediateRowMaxes[row]) * output[i];
+    float term2 = expf(curProposedRowMaxes[row] - intermediateRowMaxes[row]) *
                 intermediatePV[i];
     output[i] = (term1 * sumValues[row] + term2) / (1e-5f + intermediateSumValues[row]);
   }
   __syncthreads();
   for (int i = threadid; i < b_r; i += WARPS_PER_BLOCK * WARP_SIZE) {
     sumValues[i] = intermediateSumValues[i];
-    maxValues[i] = intermediateMaxValues[i];
+    maxValues[i] = intermediateRowMaxes[i];
   }
 }
 
