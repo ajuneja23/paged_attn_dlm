@@ -44,6 +44,7 @@ __device__ void initialReductions(float *qkt, half *casted_qkt, int b_r,
       runningSum += __shfl_down_sync(0xffffffff, runningSum, offset);
     }
     __syncwarp();
+    __shfl_sync(0xffffffff, runningSum, 0);
     if (laneid == 0) {
       curProposedRowMaxes[i] = seenMax;//m_{ij}
       curProposedSums[i] = runningSum;//l_{ij}
