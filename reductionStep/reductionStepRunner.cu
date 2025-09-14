@@ -34,8 +34,6 @@ int main(int argc, char *argv[]) {
     constexpr int b_r = 32;
     constexpr int b_c = 32;
     constexpr int qkv_dim = 64;
-    constexpr int kElementsTracked = 32;
-    constexpr int qElementsTracked = 32;
     float *shared_qkt = new float[b_r * b_c]();
     float *maxValues = new float[b_r]();
     float *sumValues = new float[b_r]();
